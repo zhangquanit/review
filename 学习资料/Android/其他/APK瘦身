@@ -22,9 +22,18 @@ x86_64: 64位的平板。
 2、res目录优化
 res目录一般也是占APK Size大头的一个目录。
 1）、保留一套图
-这个目录一般都是图片资源占空间比较多，尤其当App为了适配多种分辨率而存放了多套图时，这时候就会导致res目录打下会非常大。
+这个目录一般都是图片资源占空间比较多，尤其当App为了适配多种分辨率而存放了多套图时，这时候就会导致res目录下会非常大。
 国内应用一般保留xxhdpi即可，即3x图片  1920*1080      xxhdpi
 Android设备在加载图片时会优先加载对应分辨率文件夹下的图片，如果没有，则则找高分辨率对应文件夹下的图片。
+
+对于部分图片，可以使用drawable实现，避免切图，比如shape
+复用图片，比如向上、向右的箭头，可以通过旋转复用。
+<?xml version="1.0" encoding="utf-8"?>
+<rotate xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/ic_thumb_up"
+    android:pivotX="50%"
+    android:pivotY="50%"
+    android:fromDegrees="180" />
 
 2）手动lint检查，手动删除无用资源  --（开启了第5条，就可以不用lint检查了）
 在Android Studio中打开“Analyze” 然后选择"Inspect Code…"，范围选择整个项目，然后点击"OK"
