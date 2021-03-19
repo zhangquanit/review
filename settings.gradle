@@ -1,3 +1,4 @@
+include ':layout_optimize'
 include ':apk_shirking'
 include ':service_aidl_client'
 include ':targetversion'

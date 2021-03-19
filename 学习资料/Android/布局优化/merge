@@ -1,59 +1,28 @@
 
+demo：layout_optimize
 
-merger标签相当于是起了一个包裹的作用，它的全部属性取决于他的父类，所以merge中设置属性是不起作用的，比如宽高和背景色。
+merge标签相当于是起了一个包裹的作用，它的全部属性取决于他的父类，所以merge中设置属性是不起作用的，比如宽高和背景色。
+merge标签主要是为了减少一个层级，如果activity的根布局是FrameLayout，就可以使用merge标签，因为content节点就是一个FrameLayout
+        <?xml version="1.0" encoding="utf-8"?>
+        <merge xmlns:android="http://schemas.android.com/apk/res/android">
+
+            <FrameLayout
+                android:id="@+id/contentbar"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginBottom="50dp"
+                android:background="#ECE6E6" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_gravity="bottom"
+                android:background="#00BCD4"
+                android:orientation="horizontal" />
+        </merge>
 
 另外有两点需要特别注意：
 1、<merge />只可以作为xml layout的根节点。
-2、通过inflate渲染，必须指定放置的viewGroup，并且设置attachToRoot为True。
+2、通过inflate渲染，必须指定放置的viewGroup，并且设置attachToRoot为true。
         LayoutInflater.from(this).inflate(R.layout.include_item,container,true)
 
-
-
-include_item.xml
-<?xml version="1.0" encoding="utf-8"?>
-<merge xmlns:android="http://schemas.android.com/apk/res/android">
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:text="侧看书"
-        android:textColor="#DA1313" />
-
-</merge>
-
-
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/container1"
-    android:orientation="vertical"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent">
-
-    <FrameLayout
-        android:id="@+id/container2"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content">
-        <include layout="@layout/include_item" />  直接放在container2中，可以减少一个层级
-    </FrameLayout>
-
-    <LinearLayout
-        android:id="@+id/container3"
-        android:layout_width="match_parent"
-        android:orientation="vertical"
-        android:layout_height="wrap_content">
-        <Button
-            android:id="@+id/button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="button"
-            />
-        <include layout="@layout/include_item" /> 放置在linearlayout中
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:layout_gravity="bottom"
-        android:background="#C10E0E" />
-</LinearLayout>
