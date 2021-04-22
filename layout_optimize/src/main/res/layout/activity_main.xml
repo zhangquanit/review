@@ -80,5 +80,12 @@
         android:layout_gravity="bottom"
         android:text="FrameLayout Activity"
         android:textAllCaps="false" />
+    <Button
+        android:id="@+id/btn_fragactivity"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:text="FrameFrag Activity"
+        android:textAllCaps="false" />
 
 </LinearLayout>

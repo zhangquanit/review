@@ -17,6 +17,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".FrameLayoutActivity" />
+        <activity android:name=".FrameFragActivity" />
     </application>
 
 </manifest>

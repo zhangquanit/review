@@ -33,5 +33,11 @@ public class MainActivity extends AppCompatActivity {
                 startActivity(new Intent(v.getContext(), FrameLayoutActivity.class));
             }
         });
+        findViewById(R.id.btn_fragactivity).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startActivity(new Intent(v.getContext(), FrameFragActivity.class));
+            }
+        });
     }
 }

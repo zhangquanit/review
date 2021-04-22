@@ -670,3 +670,12 @@ Android跨进通讯的几种方式？
 4.AIDL
 5.四大组件之一的contentProvider
 6. Socket 网络通信
+
+LayoutInflater
+ public View inflate(@LayoutRes int resource, @Nullable ViewGroup root, boolean attachToRoot) {
+
+ }
+参数说明：
+resource：需要渲染的布局layout
+root：指定要添加到的父容器
+attachToRoot：是否添加到父容器root中  如果为true，返回的view为父容器root，false则返回子view本身。

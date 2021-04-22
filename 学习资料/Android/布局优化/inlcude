@@ -1,6 +1,6 @@
 
 include 标签主要是为了复用layout。
-include标签中的属性为覆盖layout中父节点的属性
+include标签中的属性会覆盖layout中根节点的属性
 
 1、include_layout.xml
 <?xml version="1.0" encoding="utf-8"?>
