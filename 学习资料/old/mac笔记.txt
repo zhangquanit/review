@@ -127,6 +127,15 @@ Logs: ~/Library/Logs/IdeaIC13
 1、怎样才能快速选择你想要的软件呢？
 我们在键盘上选择control + 空格
 
+十五、
+“Mac应用”已损坏，打不开解决办法
+原因：Mac电脑启用了安全机制，默认只信任Mac App Store下载的软件以及拥有开发者 ID 签名的软件，但是同时也阻止了没有开发者签名的 “老实软件”
+1、macOS Mojave 10.14及以下系统：
+sudo spctl --master-disable
+2、macOS Catalina 10.15系统：
+sudo xattr -rd com.apple.quarantine 空格 软件的路径
+比如：sudo xattr -rd com.apple.quarantine /Applications/Sketch.app
+
 
 
 ———git

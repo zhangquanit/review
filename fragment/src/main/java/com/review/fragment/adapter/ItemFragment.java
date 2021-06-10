@@ -115,8 +115,8 @@ public class ItemFragment extends Fragment {
     @Override
     public void setUserVisibleHint(boolean isVisibleToUser) {
         super.setUserVisibleHint(isVisibleToUser);
-        if(mIntercepterVisibleHint&&null!=getView()){
-            getView().setVisibility(isVisibleToUser?View.VISIBLE:View.GONE);
+        if (mIntercepterVisibleHint && null != getView()) {
+            getView().setVisibility(isVisibleToUser ? View.VISIBLE : View.GONE);
         }
         System.out.println("setUserVisibleHint--isVisibleToUser=" + isVisibleToUser + " " + this);
     }
