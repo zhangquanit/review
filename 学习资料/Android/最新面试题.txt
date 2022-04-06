@@ -1,0 +1,127 @@
+
+## 四种启动模式：
+  1. standard             被启动就会创建一个新的
+  2. singleTop            栈顶单实例(当该activity处于task栈顶时，可以复用，直接onNewIntent)
+  3. singleTask           栈中单实例(如果栈中存在实例，销毁在它之上的其他activity)  比如MainActivity
+  4. singleInstance       全局单实例(应用场景：地图，Activity初始化需要大量资源)
+
+ Intent的标志位FLAG：
+ Intent.FLAG_ACTIVITY_SINGLE_TOP     与加载模式singleTop功能相同
+ Intent.FLAG_ACTIVITY_CLEAR_TOP      销毁目标Activity和它之上的所有Activity，重新创建目标Activity
+ Intent.FLAG_ACTIVITY_NEW_TASK
+ Intent.FLAG_ACTIVITY_REORDER_TO_FRONT 如果这个activity已经启动了，就不产生新的activity，而只是把这个activity实例加到栈顶来就可以了。
+
+ 1.单独的FLAG_ACTIVITY_NEW_TASK并不等价于启动模式 singleTask，它仅表示寻找activity所需的任务栈压入，（即TaskAffinity指定的任务栈，TaskAffinity默认为应用包名）
+ 2.FLAG_ACTIVITY_NEW_TASK+FLAG_ACTIVITY_CLEAR_TOP也不等价于启动模式singleTask
+ 3.在FLAG_ACTIVITY_NEW_TASK+FLAG_ACTIVITY_CLEAR_TOP的情况下，AndroidManifest.xml中设置activity的启动模式为standard或singleTask时activity入栈方式是不一样的。分为如下3个情况：
+   3.1当启动模式为standard时，如果activity所需的栈中已经存在该activity的实例了，那么这个实例连同它之上的activity都要出栈，然后再新建一个activity实例入栈。
+   3.2当启动模式为singleTask时，如果activity所需的栈中已经存在该activity的实例了，那么系统会调用该实例的onNewIntent()方法，且只将该实例之上的activity出栈。
+   3.3如果activity所需的栈中不存在该activity的实例，则不论启动模式为standard还是singleTask，都是新建activity实例直接入栈。
+ 4.AndroidManifest.xml中设置activity的启动模式为singleTask时，则不论是FLAG_ACTIVITY_NEW_TASK+FLAG_ACTIVITY_CLEAR_TOP还是只有FLAG_ACTIVITY_NEW_TASK效果一样，因为singleTask模式中默认就带有FLAG_ACTIVITY_CLEAR_TOP标识。
+
+## Bitmap占用内存
+内存大小=显示的宽x显示的高x像素占用字节
+比如ARGB_8888 1个像素占用32bit 也就是4个字节
+100x100的bitmap所占用的内存=100x100x4
+注意：和图片的物理大小无关
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

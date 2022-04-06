@@ -641,27 +641,6 @@ Application的构造器方法——>attachBaseContext()——>onCreate()——>A
   <item name="android:windowBackground">@drawable/splash</item>
 </style>
 
-39、在Service或者BroadCastReceiver中弹出dialog
-默认是不能在Service或BrocastReceiver中显示Dialog的，
-如果非要显示呢？
-可以有两种方式：
-1）在manifest.xml中申请SYSTEM_ALERT_WINDOW权限
-<uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"></uses-permission>
-然后给dialog的window设置type=WindowManager.LayoutParams.TYPE_SYSTEM_ALERT
-
-AlertDialog.Builder builder = new AlertDialog.Builder(this);
-builder.setMessage("Are you sure you want to exit?")
-       .setCancelable(false)
-       .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
-           public void onClick(DialogInterface dialog, int id) {
-                MyActivity.this.finish();
-           }
-       })
-AlertDialog dialog = builder.create();
-  dialog.getWindow().setType(WindowManager.LayoutParams.TYPE_SYSTEM_ALERT);
-  dialog.show();
-2）使用一个Dialog Activity作为dialog来显示
-
 
 Android跨进通讯的几种方式？
 1.Bundle传递消息

@@ -5,7 +5,7 @@ https://blog.csdn.net/wxy318/article/details/115675643
 1、子线程抛出异常，也会导致app crash。
 可以在主线程中通过UncaughtExceptionHandler拦截子线程异常
 2、子进程抛出异常,不会导致app crash。
-可以在主线程中通过UncaughtExceptionHandler拦截子线程异常
+可以在主线程中通过UncaughtExceptionHandler拦截子进程异常
 2、主线程异常可以通过UncaughtExceptionHandler捕获，从8.0开始，系统将会记录异常堆栈g跟踪情况，系统会终止应用，
 因此建议交由主线程默认的UncaughtExceptionHandler处理(崩溃并退出)
         Thread.UncaughtExceptionHandler mainExceptionHandler = Thread.getDefaultUncaughtExceptionHandler();

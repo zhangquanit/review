@@ -412,3 +412,213 @@ public class View {
 
 
 }
+
+Activity
+    --MyLinearLayout
+        --MyView
+
+1、点击MyView  不拦截处理任何事件
+2022-04-06 18:01:23.248 9275-9275/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_DOWN
+2022-04-06 18:01:23.250 9275-9275/com.example.demo I/System.out: MyLinearLayout dispatchTouchEvent ACTION_DOWN
+2022-04-06 18:01:23.250 9275-9275/com.example.demo I/System.out: MyLinearLayout onInterceptTouchEvent ACTION_DOWN
+2022-04-06 18:01:23.250 9275-9275/com.example.demo I/System.out: MyView dispatchTouchEvent ACTION_DOWN
+2022-04-06 18:01:23.251 9275-9275/com.example.demo I/System.out: MyView onTouchEvent ACTION_DOWN
+2022-04-06 18:01:23.253 9275-9275/com.example.demo I/System.out: MyLinearLayout onTouchEvent ACTION_DOWN
+2022-04-06 18:01:23.253 9275-9275/com.example.demo I/System.out: MainActivity onTouchEvent ACTION_DOWN
+2022-04-06 18:01:23.363 9275-9275/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_UP
+                                               --不再向父容器MyLinearLayout传递，因为action  down都没有消费
+2022-04-06 18:01:23.364 9275-9275/com.example.demo I/System.out: MainActivity onTouchEvent ACTION_UP
+
+2、点击MyView.onTouchEvent返回true
+父容器MyLinearLayout和Activity的onTouchEvent不再回调事件。(事件被消费了)
+2022-04-06 17:58:24.303 8983-8983/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_DOWN
+2022-04-06 17:58:24.304 8983-8983/com.example.demo I/System.out: MyLinearLayout dispatchTouchEvent ACTION_DOWN
+2022-04-06 17:58:24.305 8983-8983/com.example.demo I/System.out: MyLinearLayout onInterceptTouchEvent ACTION_DOWN
+2022-04-06 17:58:24.305 8983-8983/com.example.demo I/System.out: MyView dispatchTouchEvent ACTION_DOWN
+2022-04-06 17:58:24.306 8983-8983/com.example.demo I/System.out: MyView onTouchEvent ACTION_DOWN
+                                                      --MyView.onTouchEvent返回true 继续派发action up
+2022-04-06 17:58:24.407 8983-8983/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_UP
+2022-04-06 17:58:24.409 8983-8983/com.example.demo I/System.out: MyLinearLayout dispatchTouchEvent ACTION_UP
+2022-04-06 17:58:24.409 8983-8983/com.example.demo I/System.out: MyLinearLayout onInterceptTouchEvent ACTION_UP
+2022-04-06 17:58:24.410 8983-8983/com.example.demo I/System.out: MyView dispatchTouchEvent ACTION_UP
+2022-04-06 17:58:24.410 8983-8983/com.example.demo I/System.out: MyView onTouchEvent ACTION_UP
+
+3、父容器MyLinearLayout.onTouchEvent返回true
+那么不再向Activity.onTouchEvent传递(被消费了)，之后子MyView也不再接收任何事件(被拦截了)
+2022-04-06 18:06:44.606 9468-9468/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_DOWN
+2022-04-06 18:06:44.607 9468-9468/com.example.demo I/System.out: MyLinearLayout dispatchTouchEvent ACTION_DOWN
+2022-04-06 18:06:44.607 9468-9468/com.example.demo I/System.out: MyLinearLayout onInterceptTouchEvent ACTION_DOWN
+2022-04-06 18:06:44.608 9468-9468/com.example.demo I/System.out: MyView dispatchTouchEvent ACTION_DOWN
+2022-04-06 18:06:44.608 9468-9468/com.example.demo I/System.out: MyView onTouchEvent ACTION_DOWN
+2022-04-06 18:06:44.608 9468-9468/com.example.demo I/System.out: MyLinearLayout onTouchEvent ACTION_DOWN
+                                               ---MyLinearLayout.onTouchEvent返回true 子View不再接受任何事件
+2022-04-06 18:06:44.705 9468-9468/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_UP
+2022-04-06 18:06:44.705 9468-9468/com.example.demo I/System.out: MyLinearLayout dispatchTouchEvent ACTION_UP
+2022-04-06 18:06:44.706 9468-9468/com.example.demo I/System.out: MyLinearLayout onTouchEvent ACTION_UP
+
+4、MyLinearLayout.onInterceptTouchEvent返回true 拦截事件
+2022-04-06 18:23:38.205 10148-10148/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_DOWN
+2022-04-06 18:23:38.206 10148-10148/com.example.demo I/System.out: MyLinearLayout dispatchTouchEvent ACTION_DOWN
+2022-04-06 18:23:38.206 10148-10148/com.example.demo I/System.out: MyLinearLayout onInterceptTouchEvent ACTION_DOWN
+                                               --onInterceptTouchEvent返回true 拦截事件  不再向子View分发事件
+2022-04-06 18:23:38.207 10148-10148/com.example.demo I/System.out: MyLinearLayout onTouchEvent ACTION_DOWN --自己处理
+2022-04-06 18:23:38.207 10148-10148/com.example.demo I/System.out: MainActivity onTouchEvent ACTION_DOWN
+2022-04-06 18:23:38.320 10148-10148/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_UP
+                                               --不再向父容器MyLinearLayout传递事件，因为action down没有消费事件
+2022-04-06 18:23:38.321 10148-10148/com.example.demo I/System.out: MainActivity onTouchEvent ACTION_UP
+
+5、MyLinearLayout.onInterceptTouchEvent返回true 拦截事件
+MyLinearLayout.onTouchEvent返回true 消费事件
+2022-04-06 18:27:27.145 10321-10321/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_DOWN
+2022-04-06 18:27:27.146 10321-10321/com.example.demo I/System.out: MyLinearLayout dispatchTouchEvent ACTION_DOWN
+2022-04-06 18:27:27.147 10321-10321/com.example.demo I/System.out: MyLinearLayout onInterceptTouchEvent ACTION_DOWN
+                                                --onInterceptTouchEvent返回true 拦截事件  不再向子View分发事件
+2022-04-06 18:27:27.147 10321-10321/com.example.demo I/System.out: MyLinearLayout onTouchEvent ACTION_DOWN
+                                                --MyLinearLayout.onTouchEvent返回true消费事件 继续接收后续事件
+2022-04-06 18:27:27.256 10321-10321/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_UP
+2022-04-06 18:27:27.256 10321-10321/com.example.demo I/System.out: MyLinearLayout dispatchTouchEvent ACTION_UP
+                                                --因为MyLinearLayout自己消费了onTouchEvent，没必要拦截事件了(onInterceptTouchEvent)
+2022-04-06 18:27:27.257 10321-10321/com.example.demo I/System.out: MyLinearLayout onTouchEvent ACTION_UP
+
+6、MyView.onTouchEvent返回true
+后续事件action move，action up被父容器MyLinearLayout.onInterceptTouchEvent拦截
+场景：触摸列表容器中的某个item滑动，列表会滚动，不能因为item.onTouchEvent返回true，父容器就不执行滑动了
+
+2022-04-06 18:37:42.939 10643-10643/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_DOWN
+2022-04-06 18:37:42.940 10643-10643/com.example.demo I/System.out: MyLinearLayout dispatchTouchEvent ACTION_DOWN
+2022-04-06 18:37:42.940 10643-10643/com.example.demo I/System.out: MyLinearLayout onInterceptTouchEvent ACTION_DOWN
+2022-04-06 18:37:42.940 10643-10643/com.example.demo I/System.out: MyView dispatchTouchEvent ACTION_DOWN
+2022-04-06 18:37:42.940 10643-10643/com.example.demo I/System.out: MyView onTouchEvent ACTION_DOWN
+                                         --MyView.onTouchEvent返回true 消费了事件 继续接收后续事件
+2022-04-06 18:37:43.028 10643-10643/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_MOVE
+2022-04-06 18:37:43.029 10643-10643/com.example.demo I/System.out: MyLinearLayout dispatchTouchEvent ACTION_MOVE
+2022-04-06 18:37:43.029 10643-10643/com.example.demo I/System.out: MyLinearLayout onInterceptTouchEvent ACTION_MOVE
+                --MyLinearLayout.onInterceptTouchEvent返回true 拦截action move事件，则子View会收到action cancel
+2022-04-06 18:37:43.029 10643-10643/com.example.demo I/System.out: MyView dispatchTouchEvent ACTION_CANCEL
+2022-04-06 18:37:43.030 10643-10643/com.example.demo I/System.out: MyView onTouchEvent ACTION_CANCEL
+2022-04-06 18:37:43.149 10643-10643/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_MOVE
+2022-04-06 18:37:43.150 10643-10643/com.example.demo I/System.out: MyLinearLayout dispatchTouchEvent ACTION_MOVE
+2022-04-06 18:37:43.151 10643-10643/com.example.demo I/System.out: MyLinearLayout onTouchEvent ACTION_MOVE
+                                            ---重复action move事件 不再调用onInterceptTouchEvent(已经返回了true)
+2022-04-06 18:37:43.173 10643-10643/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_MOVE
+2022-04-06 18:37:43.174 10643-10643/com.example.demo I/System.out: MyLinearLayout dispatchTouchEvent ACTION_MOVE
+2022-04-06 18:37:43.174 10643-10643/com.example.demo I/System.out: MyLinearLayout onTouchEvent ACTION_MOVE
+                                                            ---action up 事件
+2022-04-06 18:37:43.357 10643-10643/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_UP
+2022-04-06 18:37:43.359 10643-10643/com.example.demo I/System.out: MyLinearLayout dispatchTouchEvent ACTION_UP
+2022-04-06 18:37:43.359 10643-10643/com.example.demo I/System.out: MyLinearLayout onTouchEvent ACTION_UP
+
+
+ListView{
+    public boolean onInterceptTouchEvent(MotionEvent ev) {
+        case MotionEvent.ACTION_MOVE: {
+            switch (mTouchMode) {
+            case TOUCH_MODE_DOWN:
+                if (startScrollIfNeeded((int) ev.getX(pointerIndex), y, null)) {
+                    return true; //如果垂直滑动 则拦截事件
+                }
+                break;
+            }
+            break;
+        }
+    }
+
+    private boolean startScrollIfNeeded(int x, int y, MotionEvent vtev) {
+        final int deltaY = y - mMotionY; //计算滑动距离
+        final int distance = Math.abs(deltaY);
+        int mTouchSlop = ViewConfiguration.get(mContext).getScaledTouchSlop();
+        if (distance > mTouchSlop) { //有效的滑动（大于最小滑动距离）
+            scrollIfNeeded(x, y, vtev);
+            return true;
+         }
+    }
+
+}
+
+7、Activity.dispatchTouchEvent返回true  则父容器不会接收任何事件
+2022-04-06 19:02:46.580 11057-11057/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_DOWN
+2022-04-06 19:02:46.672 11057-11057/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_UP
+
+8、给MyView设置onTouchListener、OnClickListener
+1）、执行顺序
+MyView.dispatchTouchEvent ..MyView.onTouch ....MyView.onTouchEvent ...<action up> ...MyView.onClick
+
+2022-04-06 19:17:54.841 11453-11453/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_DOWN
+2022-04-06 19:17:54.845 11453-11453/com.example.demo I/System.out: MyLinearLayout dispatchTouchEvent ACTION_DOWN
+2022-04-06 19:17:54.845 11453-11453/com.example.demo I/System.out: MyLinearLayout onInterceptTouchEvent ACTION_DOWN
+2022-04-06 19:17:54.845 11453-11453/com.example.demo I/System.out: MyView dispatchTouchEvent ACTION_DOWN
+2022-04-06 19:17:54.846 11453-11453/com.example.demo I/System.out: MyView onTouch ACTION_DOWN
+2022-04-06 19:17:54.846 11453-11453/com.example.demo I/System.out: MyView onTouchEvent ACTION_DOWN
+2022-04-06 19:17:54.973 11453-11453/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_UP
+2022-04-06 19:17:54.974 11453-11453/com.example.demo I/System.out: MyLinearLayout dispatchTouchEvent ACTION_UP
+2022-04-06 19:17:54.974 11453-11453/com.example.demo I/System.out: MyLinearLayout onInterceptTouchEvent ACTION_UP
+2022-04-06 19:17:54.974 11453-11453/com.example.demo I/System.out: MyView dispatchTouchEvent ACTION_UP
+2022-04-06 19:17:54.975 11453-11453/com.example.demo I/System.out: MyView onTouch ACTION_UP
+2022-04-06 19:17:54.975 11453-11453/com.example.demo I/System.out: MyView onTouchEvent ACTION_UP
+2022-04-06 19:17:54.990 11453-11453/com.example.demo I/System.out: MyView onClick
+
+2）如果onTouch返回true
+2022-04-06 19:21:35.457 11594-11594/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_DOWN
+2022-04-06 19:21:35.458 11594-11594/com.example.demo I/System.out: MyLinearLayout dispatchTouchEvent ACTION_DOWN
+2022-04-06 19:21:35.459 11594-11594/com.example.demo I/System.out: MyLinearLayout onInterceptTouchEvent ACTION_DOWN
+2022-04-06 19:21:35.463 11594-11594/com.example.demo I/System.out: MyView dispatchTouchEvent ACTION_DOWN
+2022-04-06 19:21:35.464 11594-11594/com.example.demo I/System.out: MyView onTouch ACTION_DOWN
+                                                                  --不再执行onTouchEvent
+2022-04-06 19:21:35.566 11594-11594/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_UP
+2022-04-06 19:21:35.567 11594-11594/com.example.demo I/System.out: MyLinearLayout dispatchTouchEvent ACTION_UP
+2022-04-06 19:21:35.567 11594-11594/com.example.demo I/System.out: MyLinearLayout onInterceptTouchEvent ACTION_UP
+2022-04-06 19:21:35.567 11594-11594/com.example.demo I/System.out: MyView dispatchTouchEvent ACTION_UP
+2022-04-06 19:21:35.568 11594-11594/com.example.demo I/System.out: MyView onTouch ACTION_UP
+                                                                  --不再执行onClick
+
+3）父容器MyLinearLayout的onInterceptTouchEvent拦截move事件(和滑动容器拦截滑动事件处理一致)
+2022-04-06 19:25:20.693 11742-11742/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_DOWN
+2022-04-06 19:25:20.694 11742-11742/com.example.demo I/System.out: MyLinearLayout dispatchTouchEvent ACTION_DOWN
+2022-04-06 19:25:20.695 11742-11742/com.example.demo I/System.out: MyLinearLayout onInterceptTouchEvent ACTION_DOWN
+2022-04-06 19:25:20.695 11742-11742/com.example.demo I/System.out: MyView dispatchTouchEvent ACTION_DOWN
+2022-04-06 19:25:20.695 11742-11742/com.example.demo I/System.out: MyView onTouch ACTION_DOWN
+                                           ---MyView.onTouch返回true 继续分发后续事件
+2022-04-06 19:25:20.725 11742-11742/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_MOVE
+2022-04-06 19:25:20.726 11742-11742/com.example.demo I/System.out: MyLinearLayout dispatchTouchEvent ACTION_MOVE
+2022-04-06 19:25:20.726 11742-11742/com.example.demo I/System.out: MyLinearLayout onInterceptTouchEvent ACTION_MOVE
+                                           ---父容器MyLinearLayout.onInterceptTouchEvent拦截move事件
+2022-04-06 19:25:20.726 11742-11742/com.example.demo I/System.out: MyView dispatchTouchEvent ACTION_CANCEL
+2022-04-06 19:25:20.726 11742-11742/com.example.demo I/System.out: MyView onTouch ACTION_CANCEL
+                                           ---父容器MyLinearLayout自己处理move事件
+2022-04-06 19:25:21.162 11742-11742/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_MOVE
+2022-04-06 19:25:21.162 11742-11742/com.example.demo I/System.out: MyLinearLayout dispatchTouchEvent ACTION_MOVE
+2022-04-06 19:25:21.162 11742-11742/com.example.demo I/System.out: MyLinearLayout onTouch ACTION_MOVE
+2022-04-06 19:25:21.163 11742-11742/com.example.demo I/System.out: MyLinearLayout onTouchEvent ACTION_MOVE
+                                           ---action up事件
+2022-04-06 19:25:21.392 11742-11742/com.example.demo I/System.out: MainActivity dispatchTouchEvent ACTION_UP
+2022-04-06 19:25:21.396 11742-11742/com.example.demo I/System.out: MyLinearLayout dispatchTouchEvent ACTION_UP
+2022-04-06 19:25:21.397 11742-11742/com.example.demo I/System.out: MyLinearLayout onTouch ACTION_UP
+2022-04-06 19:25:21.397 11742-11742/com.example.demo I/System.out: MyLinearLayout onTouchEvent ACTION_UP
+
+
+总结：
+1、onTouchEvent
+消费事件，子View消费了(比如action down) 则不再向父容器传递，继续接收后续事件，
+父容器消费了(比如action down)，再后续事件不再向子View分发。
+2、onInterceptTouchEvent
+拦截事件，返回true 则不再向子View分发事件，由自己的onTouchEvent处理。
+3、ACTION_CANCEL
+比如子View消费了ACTION_DOWN,但是父容器拦截了ACTION_MOVE，因为要恢复子View的状态，比如action down显示被压下状态，
+则子View会接收到ACTION CANCEL事件。
+比如：容器滑动事件(ListView)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
