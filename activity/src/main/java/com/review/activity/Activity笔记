@@ -1,0 +1,91 @@
+一、应用图片和名字
+1、应用图标和名字可在<application>和<activity>中标签中设置
+1）在application标签中设置
+ <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="应用名称"
+       >
+        <activity android:name=".MainActivity"
+            >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+</application>
+2）在MainActivity标签中设置
+ <application
+        android:allowBackup="true"
+       >
+        <activity android:name=".MainActivity"
+          android:icon="@mipmap/ic_launcher"
+          android:label="应用名称"
+            >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+</application>
+2、如果同时在<application>和<MainActivity>标签中配置了icon或label，则<MainActivity>的优先
+
+二、动态替换应用icon和名字
+通过activity-alias标签给MainActivity设置一个别名，在需要的时候开启activity-alias，稍等几秒后，就会在桌面上看到更换后的名称和图标
+通过PackageManager管理组件(activity, receiver, service, provider)
+PackageManager. setComponentEnabledSetting(ComponentName componentName,int newState, int flags)
+componentName:组件名称
+newState：
+    PackageManager.COMPONENT_ENABLED_STATE_ENABLED 启用组件
+    PackageManager.COMPONENT_ENABLED_STATE_DISABLED 禁用组件
+flags：PackageManager.DONT_KILL_APP
+
+三、给应用增加多个入口
+      <activity
+        android:name=".MainActivity"
+        android:label="Activity模块"
+        android:icon="@mipmap/ic_launcher"
+        >
+        <intent-filter>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent-filter>
+      </activity>
+
+    <!-- 可配置多个入口，在桌面上会显示名字和图标-->
+    <activity android:name=".TwoActivity"
+        android:label="其他入口"
+        android:icon="@mipmap/ic_launcher"
+        >
+        <intent-filter>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent-filter>
+    </activity>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

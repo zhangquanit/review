@@ -1,0 +1,42 @@
+
+比如调用：
+NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+
+class ContextImpl extends Context {
+    @Override
+    public Object getSystemService(String name) {
+        return SystemServiceRegistry.getSystemService(this, name);
+    }
+
+}
+final class SystemServiceRegistry {
+    private static final HashMap<Class<?>, String> SYSTEM_SERVICE_NAMES =
+            new HashMap<Class<?>, String>();
+    private static final HashMap<String, ServiceFetcher<?>> SYSTEM_SERVICE_FETCHERS =
+            new HashMap<String, ServiceFetcher<?>>();
+
+    private SystemServiceRegistry() { }
+
+    static {
+            registerService(Context.ACTIVITY_SERVICE, ActivityManager.class,
+                    new CachedServiceFetcher<ActivityManager>() {
+                @Override
+                public ActivityManager createService(ContextImpl ctx) {
+                    return new ActivityManager(ctx.getOuterContext(), ctx.mMainThread.getHandler());
+                }});
+    }
+
+    //获取服务对象
+    public static Object getSystemService(ContextImpl ctx, String name) {
+        ServiceFetcher<?> fetcher = SYSTEM_SERVICE_FETCHERS.get(name);
+        return fetcher != null ? fetcher.getService(ctx) : null; //如果没有缓存调用fetcher的createService()
+    }
+
+    private static <T> void registerService(String serviceName, Class<T> serviceClass,
+            ServiceFetcher<T> serviceFetcher) {
+        SYSTEM_SERVICE_NAMES.put(serviceClass, serviceName); //服务名字和对应class
+        SYSTEM_SERVICE_FETCHERS.put(serviceName, serviceFetcher); //服务名字---Fetcher对象
+    }
+}
+
+

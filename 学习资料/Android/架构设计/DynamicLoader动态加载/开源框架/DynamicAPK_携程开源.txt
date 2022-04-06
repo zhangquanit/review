@@ -1,0 +1,52 @@
+--------------------------------DynamicAPK 
+携程开源的插件方案
+https://github.com/CtripMobile/DynamicAPK
+
+优点：
+更少的迁移成本（无需做任何activity/fragment/resource的proxy实现）
+DynamicAPK不需要实现任何activity或fragment proxy来管理他们的生命周期。修改后的aapt会处理插件中的资源，因此R.java中的资源引用和普通Android工程没有区别。开发者可以保持原有的开发范式，无需做特殊的更改。
+并发开发
+提升编译速度
+提升启动速度
+Google提供的MultiDex方案，会在主线程中执行所有dex的解压、dexopt、加载操作，这是一个非常漫长的过程，用户会明显的看到长久的黑屏，更容易造成主线程的ANR，导致首次启动初始化失败。DynamicAPK可以在App启动时仅加载必须的模块，其他模块按需加载。
+Hot fix (包含代码和资源)
+按需下载和加载任意功能模块(包含代码和资源)
+
+对比
+
+DynamicLoadApk
+迁移成本很重：需要使用『that』而不是『this』，所有activity都需要继承自proxy avtivity（proxy avtivity负责管理所有activity的生命周期）。
+无法启动apk内部的activity。
+不支持Service和BroadcastReceiver。
+
+AndroidDynamicLoader
+迁移成本很重：
+使用资源时要用MyResources.getResource(Me.class)而不是context.getResources()
+使用Fragment作为UI容器，所有每个页面都是使用Fragment而不是Activity，需要使用URL mapping才能实现页面跳转。
+
+android-pluginmgr
+未经过生产环境App测试。
+不支持Service和BroadcastReceiver。
+
+DroidPlugin from 奇虎360
+非常有趣的框架！DroidPlugin能够在一个App内启动一个没有安装的App。这个特性可能更适合360的安全产品，因为被启动的App和宿主App完全没有任何关联，相互间不能支持资源和代码调用。
+不支持自定义推送栏。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

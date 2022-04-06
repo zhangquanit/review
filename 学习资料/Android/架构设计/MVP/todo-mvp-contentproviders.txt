@@ -1,0 +1,464 @@
+
+Activity--->Presenter(持有Loader)----Respository(内存级缓存、本地缓存、网络请求)
+
+LoaderProvider：统一负责CursorLoader的创建
+
+以getTasks为列：
+ 从网络加载数据，并缓存到本地，然后回调给Presenter，LoaderManager创建或刷新CursorProvider，加载数据后回调给Presenter
+1、Presenter
+    public void loadTasks() {
+        //调用respository加载数据，
+        mTasksRepository.getTasks(this);
+    }
+2、TasksRepository
+@Override
+public void getTasks(@NonNull final GetTasksCallback callback) {
+	checkNotNull(callback);
+
+	// 从服务器加载数据
+	mTasksRemoteDataSource.getTasks(new GetTasksCallback() {
+		@Override
+		public void onTasksLoaded(List<Task> tasks) {
+			refreshLocalDataSource(tasks); //保存到本地缓存
+			callback.onTasksLoaded(null);//回调
+		}
+
+		@Override
+		public void onDataNotAvailable() {
+			callback.onDataNotAvailable();
+		}
+	});
+}
+
+3、Presenter	
+@Override
+public void onTasksLoaded(List<Task> tasks) {
+	// mLoaderManager创建或重启Loader
+	if (mLoaderManager.getLoader(TASKS_LOADER) == null) {
+		mLoaderManager.initLoader(TASKS_LOADER, mCurrentFiltering.getFilterExtras(), this); //this是LoaderManager.LoaderCallbacks
+	} else {
+		mLoaderManager.restartLoader(TASKS_LOADER, mCurrentFiltering.getFilterExtras(), this);
+	}
+}
+
+   //-----------------------LoaderManager.LoaderCallbacks--------------
+    @Override
+    public Loader<Cursor> onCreateLoader(int id, Bundle args) {
+	      //创建CursorProvider
+        return mLoaderProvider.createFilteredTasksLoader(mCurrentFiltering);
+    }
+
+    @Override
+    public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
+        if (data != null) {
+            if (data.moveToLast()) {
+                onDataLoaded(data);
+            } else {
+                onDataEmpty();
+            }
+        } else {
+            onDataNotAvailable();
+        }
+    }
+
+    @Override
+    public void onLoaderReset(Loader<Cursor> loader) {
+        onDataReset();
+    }   
+	
+   //-----------------------TasksRepository.LoaderCallbacks--------------   
+    @Override
+    public void onDataLoaded(Cursor data) {
+        mTasksView.showTasks(data); //显示列表  
+    }
+
+
+    @Override
+    public void onDataEmpty() {
+        
+    }
+
+    @Override
+    public void onDataNotAvailable() {
+      
+    }
+
+    @Override
+    public void onDataReset() {
+       
+    }
+
+相比todo-mvp，有一下特性：
+1、数据异步查询，并且查询工作放到Loader中，并且Respository不需要提供查询的Callback，查询会回调给Loader
+2、Loader调用Respository注册数据变化监听，当数据变化时，可重新加载数据
+3、当Activity屏幕发生改变时，由于LoaderManager不会重建，会维护Loader之前的状态。
+
+缺点：
+由于数据加载依赖于Loader，单元测试比较困难
+
+
+
+
+============================================================
+------LoaderProvider :创建CursorProvider
+public class LoaderProvider {
+
+    @NonNull
+    private final Context mContext;
+
+    public LoaderProvider(@NonNull Context context) {
+        mContext = checkNotNull(context, "context cannot be null");
+    }
+
+    public Loader<Cursor> createFilteredTasksLoader(TaskFilter taskFilter) {
+        String selection = null;
+        String[] selectionArgs = null;
+
+        switch (taskFilter.getTasksFilterType()) {
+            case ALL_TASKS:
+                selection = null;
+                selectionArgs = null;
+                break;
+            case ACTIVE_TASKS:
+                selection = TasksPersistenceContract.TaskEntry.COLUMN_NAME_COMPLETED + " = ? ";
+                selectionArgs = new String[]{String.valueOf(0)};
+                break;
+            case COMPLETED_TASKS:
+                selection = TasksPersistenceContract.TaskEntry.COLUMN_NAME_COMPLETED + " = ? ";
+                selectionArgs = new String[]{String.valueOf(1)};
+                break;
+        }
+
+        return new CursorLoader(
+                mContext,
+                TasksPersistenceContract.TaskEntry.buildTasksUri(),
+                TasksPersistenceContract.TaskEntry.TASKS_COLUMNS, selection, selectionArgs, null
+        );
+    }
+
+    public Loader<Cursor> createTaskLoader(String taskId) {
+        return new CursorLoader(mContext, TasksPersistenceContract.TaskEntry.buildTasksUriWith(taskId),
+                                null,
+                                null,
+                                new String[]{String.valueOf(taskId)}, null
+        );
+    }
+}
+============================================================
+
+基类
+public interface BaseView<T> {
+
+    void setPresenter(T presenter);//将presenter注入到View中
+
+}
+public interface BasePresenter {
+    void start();
+}
+
+
+public interface TasksContract {
+     //该模块的View
+    interface View extends BaseView<Presenter> {
+       ...........更新UI逻辑
+    }
+     //该模块的Presenter
+    interface Presenter extends BasePresenter {
+       ...........操作respository的api
+    }
+}
+
+//创建Loader，继承AsyncTaskLoader
+public class TasksLoader extends AsyncTaskLoader<List<Task>>
+        implements TasksRepository.TasksRepositoryObserver{
+
+    private TasksRepository mRepository;
+
+    public TasksLoader(Context context, @NonNull TasksRepository repository) {
+        super(context);
+        mRepository = repository;
+    }
+
+    @Override
+    public List<Task> loadInBackground() {
+        return mRepository.getTasks(); //加载数据
+    }
+
+    @Override
+    public void deliverResult(List<Task> data) {
+        if (isReset()) {
+            return;
+        }
+
+        if (isStarted()) {
+            super.deliverResult(data);
+        }
+
+    }
+
+    @Override
+    protected void onStartLoading() {
+        // 如果缓存可用，则获取缓存并返回
+        if (mRepository.cachedTasksAvailable()) {
+            deliverResult(mRepository.getCachedTasks());
+        }
+
+        // 注册数据变化监听
+        mRepository.addContentObserver(this);
+
+		//本地缓存不可用，则重新加载
+        if (takeContentChanged() || !mRepository.cachedTasksAvailable()) {
+            // When a change has  been delivered or the repository cache isn't available, we force
+            // a load.
+            forceLoad();
+        }
+    }
+
+    @Override
+    protected void onStopLoading() {
+        cancelLoad();
+    }
+
+    @Override
+    protected void onReset() {
+        onStopLoading();
+        mRepository.removeContentObserver(this); //注销监听器
+    }
+
+    @Override
+    public void onTasksChanged() {
+        if (isStarted()) {
+            forceLoad();
+        }
+    }
+}
+
+一、UI
+-----Activity
+TasksFragment tasksFragment =TasksFragment.newInstance();
+ActivityUtils.addFragmentToActivity(
+                    getSupportFragmentManager(), tasksFragment, R.id.contentFrame);
+
+//创建Loader
+LoaderProvider loaderProvider = new LoaderProvider(this);
+//创建Presenter
+mTasksPresenter = new TasksPresenter(
+		loaderProvider,
+		getSupportLoaderManager(),
+		Injection.provideTasksRepository(getApplicationContext()),
+		tasksFragment,
+		taskFilter
+);
+
+-----Fragment
+public class TasksFragment extends Fragment implements TasksContract.View {
+    private TasksContract.Presenter mPresenter;
+    @Override
+    public void onResume() {
+        super.onResume();
+        mPresenter.start(); //onResume中订阅
+    }
+
+    @Override
+    public void setPresenter(@NonNull TasksContract.Presenter presenter) {
+        mPresenter = presenter;
+    }
+}
+
+二、Presenter
+public class TasksPresenter implements 
+					TasksContract.Presenter,
+					TasksRepository.LoadDataCallback,  
+					TasksDataSource.GetTasksCallback,
+					LoaderManager.LoaderCallbacks<Cursor> {
+
+    private final TasksRepository mTasksRepository; //数据模块
+    private final TasksContract.View mTasksView; //View模块
+    private final LoaderProvider mLoaderProvider; //loader
+    private final LoaderManager mLoaderManager;
+	
+    private boolean mFirstLoad = true;
+
+    public TasksPresenter(
+	                  @NonNull LoaderProvider loader, 
+					  @NonNull LoaderManager loaderManager,
+					  @NonNull TasksRepository tasksRepository, 
+					  @NonNull TasksContract.View tasksView) {
+	mLoaderProvider = loaderProvider;
+	mLoaderManager = loaderManager;
+	mTasksRepository = tasksRepository;
+	mTasksView = tasksView;
+
+	mTasksView.setPresenter(this);
+   }
+   //-----------------------LoaderManager.LoaderCallbacks--------------
+    @Override
+    public Loader<Cursor> onCreateLoader(int id, Bundle args) {
+        return mLoaderProvider.createFilteredTasksLoader(mCurrentFiltering);
+    }
+
+    @Override
+    public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
+        if (data != null) {
+            if (data.moveToLast()) {
+                onDataLoaded(data);
+            } else {
+                onDataEmpty();
+            }
+        } else {
+            onDataNotAvailable();
+        }
+    }
+
+    @Override
+    public void onLoaderReset(Loader<Cursor> loader) {
+        onDataReset();
+    }   
+   //-----------------------TasksRepository.LoaderCallbacks--------------   
+    @Override
+    public void onDataLoaded(Cursor data) {
+        mTasksView.showTasks(data); //显示列表
+    }
+
+
+    @Override
+    public void onDataEmpty() {
+        mTasksView.setLoadingIndicator(false);
+        // Show a message indicating there are no tasks for that filter type.
+        processEmptyTasks();
+    }
+
+    @Override
+    public void onDataNotAvailable() {
+        mTasksView.setLoadingIndicator(false);
+        mTasksView.showLoadingTasksError();
+    }
+
+    @Override
+    public void onDataReset() {
+        mTasksView.showTasks(null);
+    }
+	
+   //-----------------------TasksDataSource.GetTasksCallback--------------   	
+    @Override
+    public void onTasksLoaded(List<Task> tasks) {
+        // we don't care about the result since the CursorLoader will load the data for us
+        if (mLoaderManager.getLoader(TASKS_LOADER) == null) {
+            mLoaderManager.initLoader(TASKS_LOADER, mCurrentFiltering.getFilterExtras(), this);
+        } else {
+            mLoaderManager.restartLoader(TASKS_LOADER, mCurrentFiltering.getFilterExtras(), this);
+        }
+    }
+	
+	
+三、Respository
+//定义数据接口
+public interface TasksDataSource {
+     
+	 //注意是回调给Respository的 ，Presenter不需要（通过Loader回调）
+    interface GetTaskCallback {
+
+        void onTaskLoaded(Task task);
+
+        void onDataNotAvailable();
+    }
+
+    void getTasks(@NonNull GetTasksCallback callback);
+
+    void getTask(@NonNull String taskId, @NonNull GetTaskCallback callback);
+
+}
+
+//本地缓存（数据库）实现接口
+public class TasksLocalDataSource implements TasksDataSource {
+    private static TasksLocalDataSource INSTANCE;
+    private ContentResolver mContentResolver;    //ContentResolver
+
+    private TasksLocalDataSource(@NonNull ContentResolver contentResolver) {
+        mContentResolver = contentResolver;
+    }
+
+    public static TasksLocalDataSource getInstance(@NonNull ContentResolver contentResolver) {
+        if (INSTANCE == null) {
+            INSTANCE = new TasksLocalDataSource(contentResolver);
+        }
+        return INSTANCE;
+    }
+	Override
+    public void getTasks(@NonNull GetTasksCallback callback) {
+        // Cursor Loader实现数据加载
+    }
+	
+    public void saveTask(@NonNull Task task) {
+        //通过ContentResolver保存
+        ContentValues values = TaskValues.from(task);
+        mContentResolver.insert(TasksPersistenceContract.TaskEntry.buildTasksUri(), values);
+    }	
+	
+
+//网络数据，实现相同的接口
+public class TasksRemoteDataSource implements TasksDataSource {
+
+    private static TasksRemoteDataSource INSTANCE;
+    private TasksRemoteDataSource() {}	
+	//单列模式
+    public static TasksRemoteDataSource getInstance() {
+        if (INSTANCE == null) {
+            INSTANCE = new TasksRemoteDataSource();
+        }
+        return INSTANCE;
+    }
+}
+ 
+//Respository，实现相同数据操作接口
+public class TasksRepository implements TasksDataSource {
+
+    private static TasksRepository INSTANCE = null;
+    private final TasksDataSource mTasksRemoteDataSource;//网络数据
+    private final TasksDataSource mTasksLocalDataSource; //本地缓存
+
+    private TasksRepository(@NonNull TasksDataSource tasksRemoteDataSource,
+                            @NonNull TasksDataSource tasksLocalDataSource) {
+        mTasksRemoteDataSource = tasksRemoteDataSource;
+        mTasksLocalDataSource = tasksLocalDataSource;
+    }
+	 //单列模式
+	public static TasksRepository getInstance(TasksDataSource tasksRemoteDataSource,
+										  TasksDataSource tasksLocalDataSource) {
+	if (INSTANCE == null) {
+		INSTANCE = new TasksRepository(tasksRemoteDataSource, tasksLocalDataSource);
+	}
+	return INSTANCE;
+   }
+   
+    @Override
+    public void getTasks(@NonNull final GetTasksCallback callback) {
+        checkNotNull(callback);
+
+        // 直接从网络加载   本地缓存加载通过CursorLoader实现
+        mTasksRemoteDataSource.getTasks(new GetTasksCallback() {
+            @Override
+            public void onTasksLoaded(List<Task> tasks) {
+                refreshLocalDataSource(tasks);
+                callback.onTasksLoaded(null);
+            }
+
+            @Override
+            public void onDataNotAvailable() {
+                callback.onDataNotAvailable();
+            }
+        });
+    }
+	
+    public interface LoadDataCallback {
+        void onDataLoaded(Cursor data);
+
+        void onDataEmpty();
+
+        void onDataNotAvailable();
+
+        void onDataReset();
+    }	
+ }  
+
+

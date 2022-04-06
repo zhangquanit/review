@@ -1,0 +1,26 @@
+
+include 标签主要是为了复用layout。
+include标签中的属性会覆盖layout中根节点的属性
+
+1、include_layout.xml
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:id="@+id/include_id"
+    android:orientation="vertical"
+    android:background="#DF0404"
+    >
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="merge text"
+        android:textSize="15sp" />
+</LinearLayout>
+
+2、调用时，可以覆盖width、height、id、margin等属性
+<include layout="@layout/include_layout"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:id="@+id/new_include_id" //设置新的id
+  />

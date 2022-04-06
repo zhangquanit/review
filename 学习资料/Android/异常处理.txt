@@ -1,0 +1,147 @@
+
+https://blog.csdn.net/wxy318/article/details/115675643
+
+一、Java 层获取未处理的异常
+1、子线程抛出异常，也会导致app crash。
+可以在主线程中通过UncaughtExceptionHandler拦截子线程异常
+2、子进程抛出异常,不会导致app crash。
+可以在主线程中通过UncaughtExceptionHandler拦截子线程异常
+2、主线程异常可以通过UncaughtExceptionHandler捕获，从8.0开始，系统将会记录异常堆栈g跟踪情况，系统会终止应用，
+因此建议交由主线程默认的UncaughtExceptionHandler处理(崩溃并退出)
+        Thread.UncaughtExceptionHandler mainExceptionHandler = Thread.getDefaultUncaughtExceptionHandler();
+        Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(@NonNull Thread t, @NonNull Throwable e) {
+
+                 if (t == Looper.getMainLooper().getThread()) {
+                     //主线程crash，交由系统默认的UncaughtExceptionHandler处理，退出app，否则8.0后，app是卡死状态
+                    mainExceptionHandler.uncaughtException(t,e);
+                 } else {
+                     //子线程的异常可捕获，捕获后不会导致程序crash
+                    System.out.println("子线程出现异常 e=" + e.getMessage());
+                 }
+
+
+            }
+        });
+
+3、如何让主线程不崩溃
+        Handler(Looper.getMainLooper()).post {
+            while(true){
+                try{
+                    //之前的loop已经在while(true)停住了，所以这里继续调用loop()循环处理消息队列
+                     Looper.loop()
+                }catch(e:Exception){
+                    e.printStackTrace()
+                }
+            }
+        }
+通过Handler往主线程的queue中添加一个Runnable，当主线程执行到该Runnable时，会进入我们的while死循环
+在while死循环中又调用了Looper.loop()，这就导致主线程又开始不断的读取queue中的Message并执行，
+这样就可以保证以后主线程的所有异常都会从我们手动调用的Looper.loop()处抛出，一旦抛出就会被try{}catch捕获
+
+
+public final class Cockroach {
+
+    public interface ExceptionHandler {
+
+        void handlerException(Thread thread, Throwable throwable);
+    }
+
+    private Cockroach() {
+    }
+
+    private static ExceptionHandler sExceptionHandler;
+    private static Thread.UncaughtExceptionHandler sUncaughtExceptionHandler;
+    private static boolean sInstalled = false;//标记位，避免重复安装卸载
+
+    /**
+     * 当主线程或子线程抛出异常时会调用exceptionHandler.handlerException(Thread thread, Throwable throwable)
+     * <p>
+     * exceptionHandler.handlerException可能运行在非UI线程中。
+     * <p>
+     * 若设置了Thread.setDefaultUncaughtExceptionHandler则可能无法捕获子线程异常。
+     *
+     * @param exceptionHandler
+     */
+    public static synchronized void install(ExceptionHandler exceptionHandler) {
+        if (sInstalled) {
+            return;
+        }
+        sInstalled = true;
+        sExceptionHandler = exceptionHandler;
+
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            @Override
+            public void run() {
+
+                while (true) {
+                    try {
+                        Looper.loop();
+                    } catch (Throwable e) {
+//                        Binder.clearCallingIdentity();
+                        if (e instanceof QuitCockroachException) {
+                            return;
+                        }
+                        if (sExceptionHandler != null) {
+                            sExceptionHandler.handlerException(Looper.getMainLooper().getThread(), e);
+                        }
+                    }
+                }
+            }
+        });
+
+        sUncaughtExceptionHandler = Thread.getDefaultUncaughtExceptionHandler();
+        Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(Thread t, Throwable e) {
+                if (sExceptionHandler != null) {
+                    sExceptionHandler.handlerException(t, e);
+                }
+            }
+        });
+
+    }
+
+    public static synchronized void uninstall() {
+        if (!sInstalled) {
+            return;
+        }
+        sInstalled = false;
+        sExceptionHandler = null;
+        //卸载后恢复默认的异常处理逻辑，否则主线程再次抛出异常后将导致ANR，并且无法捕获到异常位置
+        Thread.setDefaultUncaughtExceptionHandler(sUncaughtExceptionHandler);
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
+            @Override
+            public void run() {
+                throw new QuitCockroachException("Quit Cockroach.....");//主线程抛出异常，迫使 while (true) {}结束
+            }
+        });
+
+    }
+}
+
+
+二、Native 层获取未处理的异常的相关信息
+https://www.cnblogs.com/mingfeng002/p/9118253.html
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

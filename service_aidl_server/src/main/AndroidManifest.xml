@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.review.aidl.server">
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:name=".App"
+        android:theme="@style/AppTheme">
+        <activity android:name="com.review.aidl.server.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <service
+            android:name="com.review.aidl.server.MyAIDLService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.interview.action.aidl"></action>
+            </intent-filter>
+        </service>
+
+        <service
+            android:name="com.review.aidl.server.RemoteAIDLService"
+            android:process=":remote"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.interview.action.aidl"></action>
+            </intent-filter>
+        </service>
+    </application>
+
+</manifest>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools"
+    />
+<!--
+声明保存的文件有内容（资源文件和layout文件）
+tools:keep="@layout/xx,@drawable/xx"
+-->

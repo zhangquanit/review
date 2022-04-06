@@ -1,0 +1,113 @@
+
+https://zhuanlan.zhihu.com/p/158685609
+常见网络优化方案：
+1、使用缓存
+Cache-Control：max-age=2592000   //max-age是个相对的值,相对Request_time(请求时间).单位秒
+Expires：Fri, 22 Apr 2022 05:40:30 GMT
+
+Expires有一个非常大的缺陷，它使用一个固定的时间。HTTP1.1引入了Cathe-Control，它使用max-age指定组件被缓存多久
+2、数据压缩，减少网络传输量，提升速度。
+1）设置请求消息头：
+Accept-Encoding: gzip, deflate
+2）压缩图片
+
+3、DNS优化
+由于进行网络请求，可能会遇到DNS被劫持和DNS解析缓慢，造成网络请求过于耗时。
+可以采用HTTPDNS来绕过运营商服务器解析过程，从而降低平均访问时长，提高连接率，进而提高网络访问的速度。
+compile ('com.aliyun.ams:alicloud-android-httpdns:1.1.7@aar') {
+        transitive true
+    }
+4、合并请求、域名合并等
+同一页面尽量减少网络请求次数，客户端减少域名。
+5、监控网络请求的质量
+比如接口请求耗时，成功率或者错误码，针对性的优化请求。
+public class NoNetInterceptor implements Interceptor {
+
+    @Override
+    public Response intercept(Chain chain) throws IOException {
+        Request request = chain.request();
+        Request.Builder builder = request.newBuilder();
+        if(!Utils.isNetworkConnected(PerformanceApp.getApplication())){
+            builder.cacheControl(CacheControl.FORCE_CACHE); //无网络时 使用缓存
+        }
+        return chain.proceed(builder.build());
+    }
+}
+
+ Cache cache = new Cache(getCacheDir(),10*1024*1024); //网络缓存目录
+ OkHttpClient.Builder client = new OkHttpClient.Builder();
+         client.
+                cache(cache).
+                eventListenerFactory(OkHttpEventListener.FACTORY). //监控网络请求
+                dns(OkHttpDNS.getIns(PerformanceApp.getApplication())) //使用第三方HttpDns
+                addInterceptor(new NoNetInterceptor()).
+
+
+
+
+------------美团点评移动网络优化实践
+
+一、基于短连的优化
+短连方案一、域名合并方案
+随着开发规模逐渐扩大，APP中的API域名越来越多。比如
+ad.api.dianping.com
+tuangou.api.dianping.com
+waimai.api.dianping.com
+APP中域名多了之后，将面临下面几个问题：
+1）HTTP请求需要跟不同服务器建立连接。增加了网络的并发连接数量
+2）每条域名都需要经过DNS服务来解析服务器IP
+解决方案：
+客户端网络层----------SLB----业务服务器
+网络请求发送前，在客户端的网络底层将URL中的域名做简单的替换，例如：
+"http://ad.api.dianping.com/command?param1=123" 在网络底层被修改为
+"http://api.dianping.com/ad/command?param1=123"
+这里，将域名"ad.api.dianping.com"替换为"api.dianping.com",子级域名信息被隐藏在了域名后的path中。
+被改造的请求被送到SLB中，然后SLB中还原URL请求，并将请求分发到不同的业务服务器。
+该方案具有如下优势：
+1）、域名得到了收编，减少了DNS调用次数，降低了DNS劫持风险。
+2）、针对同一域名，可以利用Keep-Alive来复用Http的连接。
+3）、客户端业务层不需要修改代码，后端业务也不需要进行任何修改。
+
+短连方案二、IP直连方案
+获取"api.dianping.com"对应的所有的IP列表，对所有IP进行跑马测试，找到速度最快的IP，后续所有的HTTPS请求都将域名更换为跑马最快的IP即可。
+举个列子，经过跑马测试发现域名"api.dianping.com"对应最快的IP是"1.23.456.789".
+URL "http://api.dianping.com/ad/command?param1=123" 将替换为
+"http://1.23.456.789/ad/command?param1=123"
+此外，如果你的APP域名没有经过合并，域名比较多，也建议可以尝试使用HttpDNS方案。
+参考 http://www.tuicool.com/articles/7nAJBb
+HttpDNS主要解决三类问题：
+1）LocalDNS劫持
+ 由于HttpDNS是通过ip直接请求http获取服务器A记录地址，不存在向本地运营商询问domain解析过程，所以从根本避免了劫持问题。
+2）平均访问延迟下降
+ 由于是ip直接访问省掉了一次domain解析过程，通过智能算法排序后找到最快节点进行访问。
+3）用户连接失败率下降
+通过算法降低以往失败率过高的服务器排序，通过时间近期访问过的数据提高服务器排序，通过历史访问成功记录提高服务器排序。
+
+二、长连通道建设
+提到长连通道建设，首先让人想到的应该是HTTP/2技术，它具有异步连接多路复用、头部压缩、请求响应管线化等众多优点。
+HTTP/2在客户端与服务器之间建立长连通道，将同一域名的请求都放在长连通道上进行。但是也有一些缺点：
+1、请求基于DNS，仍将面临DNS劫持风险。
+2、不同域名的请求需要建立多条连接。
+3、业务改造难度大。部署HTTP/2，需要对业务服务器进行改造，而且使用的业务服务器越多，需要改造的成本也越大。
+4、网络协议可订制程度小。
+与HTTP/2相区别，我们这里推荐另一种代理长连的模式。
+基本思路为：在客户端与业务服务器之间架设代理长连服务器，客户端与代理服务器建立TCP长连通道，客户端的HTTP请求被转换为了TCP通道
+上的二进制数据包。代理服务器负责与业务服务器进行HTTP请求，请求的结果通过长连通道送回客户端。
+与HTTP/2模式对比，代理长连模式具有下面一些优势：
+1、对DNS无依赖。
+客户端与代理服务器之间的长连通道是通过IP建立的，与DNS没有关系。
+2、不同域名的请求可以复用同一条通道
+3、通道易优化
+客户端在选择代理长连服务器时，可以通过跑马找到最快的服务器IP进行连接。另一方面，代理服务器与业务服务器之间的网络通道也可以优化，
+通过架设专线或者租用腾讯云等方式可以大大提高通道服务质量。
+4、对业务透明。
+客户端的业务代码只要接入网络层的SDK即可，完全不用关心网络请求使用的是长连通道还是短通道。代理服务器将客户端的请求还原为
+HTTP短连方式发送到业务服务器，业务服务器不需要进行任何改造。
+5、网络协议完全自定义。
+
+可以接入腾讯的WNS：https://www.qcloud.com/product/wns
+
+
+
+
+

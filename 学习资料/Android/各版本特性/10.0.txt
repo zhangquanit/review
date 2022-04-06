@@ -1,0 +1,51 @@
+
+一、分区存储
+android10增加分区存储的概念：
+内部储存：/data 目录。一般我们使用getFilesDir() 或 getCacheDir() 方法获取本应用的内部储存路径，读写该路径下的文件不需要申请储存空间读写权限，且卸载应用时会自动删除。
+外部储存：/storage 或 /mnt 目录。一般我们使用getExternalStorageDirectory()方法获取的路径来存取文件。
+外部存储空间分为了三部分：
+    特定目录，使用getExternalFilesDir()或 getExternalCacheDir()方法访问。无需权限，且卸载应用时会自动删除。
+
+    照片、视频、音频这类媒体文件。使用MediaStore 访问，访问其他应用的媒体文件时需要READ_EXTERNAL_STORAGE权限。
+
+    其他目录，使用存储访问框架SAF（Storage Access Framwork）
+    https://developer.android.google.cn/guide/topics/providers/document-provider?hl=zh_cn
+
+所以在Android 10上即使你拥有了储存空间的读写权限，也无法保证可以正常的进行文件的读写操作。
+适配：
+1、最简单粗暴的方法就是在AndroidManifest.xml中添加android:requestLegacyExternalStorage="true"来请求使用旧的存储模式。
+不过android11 已经取消这种方式，对于后续升级targetSdkVersion不方便。
+2、建议对于应用中涉及的文件操作，修改一下文件路径：
+1）建议使用getExternalFilesDir/getExternalCacheDir
+2）对于多媒体文件使用MediaStore，将文件存至对应的媒体类型中（图片：MediaStore.Images ，视频：MediaStore.Video，音频：MediaStore.Audio）。
+   public static Uri createImageUri(Context context) {
+        ContentValues values = new ContentValues();
+        // 需要指定文件信息时，非必须
+        values.put(MediaStore.Images.Media.DESCRIPTION, "This is an image");
+        values.put(MediaStore.Images.Media.DISPLAY_NAME, "Image.png");
+        values.put(MediaStore.Images.Media.MIME_TYPE, "image/png");
+        values.put(MediaStore.Images.Media.TITLE, "Image.png");
+        values.put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/test");
+
+        return context.getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+    }
+
+
+二、权限变化
+1、在后台运行时访问设备位置信息需要权限
+Android 10 引入了 ACCESS_BACKGROUND_LOCATION 权限（危险权限）。
+该权限允许应用程序在后台访问位置。如果请求此权限，则还必须请求ACCESS_FINE_LOCATION 或 ACCESS_COARSE_LOCATION权限。
+targetSdkVersion < 29，则在请求ACCESS_FINE_LOCATION 或ACCESS_COARSE_LOCATION权限时，系统会自动同时请求ACCESS_BACKGROUND_LOCATION。
+
+如果你的应用的 targetSdkVersion >= 29，则请求ACCESS_FINE_LOCATION 或 ACCESS_COARSE_LOCATION权限表示在前台时拥有访问设备位置信息的权。
+在请求弹框中，选择“始终允许”表示前后台都可以获取位置信息，选择“仅在应用使用过程中允许”只表示拥有前台的权限。
+
+
+三、从后台启动 Activity 的限制
+从 Android 10 开始，系统会增加针对从后台启动 Activity 的限制。
+此项行为变更有助于最大限度地减少对用户造成的中断，并且可以让用户更好地控制其屏幕上显示的内容。
+
+
+二、在 Android 10上运行的应用无法获得 SYSTEM_ALERT_WINDOW 权限。
+这是因为绘制叠加层窗口会使用过多的内存，这对低内存 Android 设备的性能十分有害。
+如果在搭载 Android 9 或更低版本的 Go 版设备上运行的应用获得了 SYSTEM_ALERT_WINDOW 权限，则即使设备升级到 Android 10，也会保留此权限。

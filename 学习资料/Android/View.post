@@ -1,0 +1,230 @@
+
+https://blog.csdn.net/weixin_33711647/article/details/91430070
+
+一、调用View.post()
+在Activity的onCreate()或onResume()中调用View.post(runnable)获取View的宽高
+public clsss View{
+	public boolean post(Runnable action) {
+	    final AttachInfo attachInfo = mAttachInfo;
+	    if (attachInfo != null) { //执行完dispatchAttachedToWindow后(也就是在onResume或之后执行) attachInfo就不为null
+	         // runnable会通过mHandler对象发送到UI线程的MessageQueue中，这样的话就跟普通handler post没什么区别了
+	        return attachInfo.mHandler.post(action);
+	    }
+
+        //当View还没attach到window的时候(比如onCreate中)，需要post到RunQueue中
+	    getRunQueue().post(action);
+	    return true;
+	}
+
+     //mAttachInfo的初始化
+    void dispatchAttachedToWindow(AttachInfo info, int visibility) {
+        mAttachInfo = info;
+
+        //在此会执行处理RunQueue里的runnable
+        if (mRunQueue != null) {
+            mRunQueue.executeActions(info.mHandler);
+            mRunQueue = null;
+        }
+        onAttachedToWindow();
+    }
+
+    private HandlerActionQueue getRunQueue() {
+        if (mRunQueue == null) {
+            mRunQueue = new HandlerActionQueue();
+        }
+        return mRunQueue;
+    }
+}
+
+--------
+public class HandlerActionQueue {
+    private HandlerAction[] mActions; //保存HandlerAction数组
+    private int mCount;
+
+    public void post(Runnable action) {
+        postDelayed(action, 0);
+    }
+
+    public void postDelayed(Runnable action, long delayMillis) {
+         //将runnable封装到HandlerActtion中
+        final HandlerAction handlerAction = new HandlerAction(action, delayMillis);
+
+        synchronized (this) {
+            if (mActions == null) {
+                mActions = new HandlerAction[4];
+            }
+            //添加到mActions数组中
+            mActions = GrowingArrayUtils.append(mActions, mCount, handlerAction);
+            mCount++;
+        }
+    }
+    //执行HandlerAction
+    public void executeActions(Handler handler) {
+        synchronized (this) {
+            final HandlerAction[] actions = mActions;
+            for (int i = 0, count = mCount; i < count; i++) {
+                final HandlerAction handlerAction = actions[i];
+                //也是通过Handler发送到UI线程中，在measure-layout-draw之后
+                handler.postDelayed(handlerAction.action, handlerAction.delay);
+            }
+
+            mActions = null;
+            mCount = 0;
+        }
+    }
+ }
+
+-------dispatchAttachedToWindow调用时机
+此方法的调用会追溯到 ViewRootImpl.performTraversals()方法
+
+public ViewRootImpl(Context context, Display display) {
+    mAttachInfo = new View.AttachInfo(mWindowSession, mWindow, display, this, mHandler, this, context);
+}
+
+private void performTraversals() {
+    final View host = mView; //DecorView
+    ...
+    if (mFirst) {
+        host.dispatchAttachedToWindow(mAttachInfo, 0);
+    } else {
+        ...
+    }
+    mFirst = false;
+    performMeasure(childWidthMeasureSpec, childHeightMeasureSpec);
+    performLayout(lp, mWidth, mHeight);
+    performDraw();
+}
+
+----DecorView
+void dispatchAttachedToWindow(AttachInfo info, int visibility) {
+    super.dispatchAttachedToWindow(info, visibility);
+    final int count = mChildrenCount;
+    final View[] children = mChildren;
+    for (int i = 0; i < count; i++) {
+        final View child = children[i];
+        child.dispatchAttachedToWindow(info, combineVisibility(visibility, child.getVisibility()));
+    }
+    final int transientCount = mTransientIndices == null ? 0 : mTransientIndices.size();
+    for (int i = 0; i < transientCount; ++i) {
+        View view = mTransientViews.get(i);
+        view.dispatchAttachedToWindow(info, combineVisibility(visibility, view.getVisibility()));
+    }
+  }
+先调用自己的 dispatchAttachedToWindow()方法，再调用每个child的dispatchAttachedToWindow()方法，这样整个view树中就初始化了各自的mAttachInfo。
+但是注意一下细节，在performTraversals()中，dispatchAttachedToWindow()是在performMeasure()之前，这样的话，依旧没法保证post(runnable)时获取到尺寸啊。
+我们继续往上看performTraversals的调用，最终定位到 doTraversal()
+
+
+-----------ViewRootImpl
+final class TraversalRunnable implements Runnable {
+    @Override
+    public void run() {
+        doTraversal();
+    }
+}
+final TraversalRunnable mTraversalRunnable = new TraversalRunnable();
+
+void scheduleTraversals() {
+    if (!mTraversalScheduled) {
+        mTraversalScheduled = true;
+        mTraversalBarrier = mHandler.getLooper().getQueue().postSyncBarrier();
+        //
+        mChoreographer.postCallback(Choreographer.CALLBACK_TRAVERSAL, mTraversalRunnable, null);
+        ...
+    }
+}
+
+void doTraversal() {
+    if (mTraversalScheduled) {
+        mTraversalScheduled = false;
+        mHandler.getLooper().getQueue().removeSyncBarrier(mTraversalBarrier);
+
+        performTraversals();
+    }
+}
+
+可以看到performTraversals()是由handler发送TraversalRunnable消息执行的，view post(runable)也是由handler发送消息执行的。
+消息的执行顺序跟他们加入消息队列的顺序有关，由于TraversalRunnable先加入的，所以performTraversals在view post的Runnable之前执行，
+也就是measure/layout/draw流程先执行。也就是说等到执行view post的Runnable时，view已经被measure过，此时可以获取view的大小。
+
+
+二、AttachedToWindow 与 Activity的生命周期
+直接在Activity的onCreate/onResume无法获取view的尺寸，也就是说performTraversals还未执行，那performTraversals是在Activity哪个阶段调用的哪？
+
+//ActivityThread类中的 handleResumeActivity调用
+public void handleResumeActivity(IBinder token, boolean finalStateRequest, boolean isForward, String reason) {
+
+    //首先调用performResumeActivity()->Activity.performResume->activity.onResume
+    final ActivityClientRecord r = performResumeActivity(token, finalStateRequest, reason);
+
+    final Activity a = r.activity;
+    if (r.window == null && !a.mFinished && willBeVisible) {
+        r.window = r.activity.getWindow();
+        View decor = r.window.getDecorView();
+        decor.setVisibility(View.INVISIBLE);
+        ViewManager wm = a.getWindowManager();
+        wm.addView(decor, l);  // ->WindowManagerImpl.addView
+    ｝
+}
+
+public final class WindowManagerImpl implements WindowManager {
+    @Override
+    public void addView(@NonNull View view, @NonNull ViewGroup.LayoutParams params) {
+         // ->WindowManagerGlobal.addView
+        mGlobal.addView(view, params, mContext.getDisplay(), mParentWindow);
+    }
+}
+public final class WindowManagerGlobal {
+    public void addView(View view, ViewGroup.LayoutParams params,
+            Display display, Window parentWindow) {
+
+    ViewRootImpl root;
+    View panelParentView = null;
+    //ViewRootImpl 创建
+    root = new ViewRootImpl(view.getContext(), display);
+    view.setLayoutParams(wparams);
+
+    mViews.add(view);
+    mRoots.add(root);
+    mParams.add(wparams);
+    //在setView 里最终会调用performTraversals()
+    root.setView(view, wparams, panelParentView);
+    }
+}
+
+调用链：
+ActivityThread.handleResumeActivity
+->Activity.onResume
+ ->WindowManagerImpl.addView
+   ->WindowManagerGlobal.addView
+     ->ViewRootImpl.performTraversals
+       ->DecorView.dispatchAttachedToWindow(AttachInfo info)
+         ->子View.dispatchAttachedToWindow(AttachInfo info)
+           -> mAttachInfo = info;   mRunQueue.executeActions(info.mHandler);  onAttachedToWindow();
+             ->执行View.post(runnable) 提交的runnable
+
+通过上面调用链的分析，我们最终可以确定在onResume()后，会调用performTraversals()处理布局的measure/layout/draw并调用各view的dispatchAttachedToWindow。所以在onResume时并不能获取view的尺寸。
+
+
+三、view/activity的生命周期关系
+
+E/MyActivity: onCreate:
+E/CustomView: onFinishInflate:
+E/MyActivity: onResume:
+E/MyActivity: onAttachedToWindow:
+E/CustomView: onAttachedToWindow:
+E/CustomView: onMeasure:
+E/CustomView: onMeasure:
+E/CustomView: onMeasure:
+E/CustomView: onSizeChanged:
+E/CustomView: onLayout:
+E/CustomView: onDraw:
+E/MainActivity: onWindowFocusChanged: true
+E/CustomView: onWindowFocusChanged: true
+
+//接下来退出Activity
+E/MainActivity: onWindowFocusChanged: false
+E/CustomView: onWindowFocusChanged: false
+E/MyActivity: onDestroy:
+E/CustomView: onDetachedFromWindow:
+E/MyActivity: onDetachedFromWindow:

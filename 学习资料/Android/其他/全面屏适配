@@ -1,0 +1,76 @@
+
+在manifest.xml中添加：
+<!-- 适配全面屏 Android O vivo&oppo -->
+<meta-data    android:name="android.max_aspect"    android:value="2.5" />
+<!-- 适配刘海屏、水滴屏 Android O 小米 -->
+<meta-data    android:name="notch.config"    android:value="portrait|landscape" />
+<!-- 适配刘海屏、水滴屏 Android O 华为 -->
+<meta-data    android:name="android.notch_support"    android:value="true" />
+<!-- 适配刘海屏、水滴屏 Android P -->
+<meta-data    android:name="android.vendor.full_screen"    android:value="true" />
+<meta-data android:name="android.vendor.home_indicator" android:value="hide"/>
+
+
+-----------------------------------------------------------------------------------------------------------------------------
+
+一、全面屏适配方法
+根据谷歌兼容性（CTS）标准要求,应用必须按以下方式中的任意一种，在AndroidManifest.xml中配置方可全屏显示，否则将以非全屏显示。
+
+1、声明最大屏幕高宽比
+传统的屏幕ratio_float = 16/9 = 1.778，随着全面屏的出现ratio_float远远大于16/9，如果不提高这个值默认不会开启全面适配的，会导致屏幕有大块留黑。
+为了往后兼容，建议可以适当把这个值设置得比较大一点的。
+<meta-data android:name="android.max_aspect" android:value="2.5"/>
+或
+android:maxAspectRatio="ratio_float"   （API LEVEL 26）
+
+
+2、设置分屏模式开启
+resizeableActivity是应用分屏模式的开启，应用分屏模式开启时，可以自动适配全面屏。
+尤其注意的一点是Android 7.0之后，应用分屏模式默认是开启的，所以当targetSdkVersion >= 24时，可以自动适配全面屏，不需要额外修改屏幕高宽比。
+
+二、异形屏适配注意事项
+异形屏：刘海屏、水滴屏等
+
+Android 9.0之后，google官方推出了异形屏适配的支持DisplayCutout。通过这个类可以获取到非功能区域的位置与大小，以便应用的内容展示区域很好的避开对应这块区域。
+在我们的应用已经做好了异形屏适配的基础上，我们可以允许我们的应用使用刘海区域。
+
+对于android9.0之前的设备呢？其实主流的手机厂商给了他们各自的一套解决方案。其实市面上刘海屏手机，当你在设置中对特定的应用开启了使用刘海屏区域时，
+应用不管你有没有做异形屏适配都会将刘海屏区域作为内容展示区域。这样来看，其实就存在着一定的风险，当应用本身没有做异形屏适配，会导致应用显示异常。
+在这一点，不得不提到华为的做法，华为为了保证应用的质量，特意加了一道开关来控制是否开放刘海屏显示。而这个开关掌握在应用开发者自己手里，应用开发者打开了对应的开关，用户的设置才真的有效，这样有效的保证了应用的质量。
+
+华为对应的设置使用刘海区显示有两种方式：
+1、Meta-data属性
+ <meta-data
+        android:name="android.notch_support"
+        android:value="true"
+    />
+此属性不仅可以针对Application生效，也可以对Activity配置生效。
+
+2、给window添加华为新增的FLAG_NOTCH_SUPPORT方式
+/*刘海屏全屏显示FLAG*/
+public static final int FLAG_NOTCH_SUPPORT=0x00010000;
+/** * 设置应用窗口在华为刘海屏手机使用挖孔区 * @param window 应用页面window对象 */
+public static void setFullScreenWindowLayoutInDisplayCutout(Window window)
+    { if (window == null) { return; }
+    WindowManager.LayoutParams layoutParams = window.getAttributes();
+    try {
+        Class layoutParamsExCls = Class.forName("com.huawei.android.view.LayoutParamsEx");
+        Constructor con=layoutParamsExCls.getConstructor(LayoutParams.class);
+        Object layoutParamsExObj=con.newInstance(layoutParams);
+        Method method=layoutParamsExCls.getMethod("addHwFlags", int.class);
+        method.invoke(layoutParamsExObj, FLAG_NOTCH_SUPPORT);
+            } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException |InstantiationException | InvocationTargetException e)
+            { Log.e("test", "hw notch screen flag api error");
+        } catch (Exception e)
+        { Log.e("test", "other Exception");
+    }
+}
+
+
+主流的手机厂商都有提供自己的异形屏适配支持的方案。
+OPPO:https://open.oppomobile.com/wiki/doc#id=10159
+VIVO:https://dev.vivo.com.cn/doc/document/info?id=103
+HUAWEI:https://mini.eastday.com/bdmip/180411011257629.html
+
+
+

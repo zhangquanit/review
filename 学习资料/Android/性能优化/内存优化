@@ -1,0 +1,37 @@
+
+内存优化主要就是减少内存占用和避免内存泄露
+
+一、减少内存占用
+1、选择合适的数据集合
+    1）使用Android优化的集合(当key为Integer时)
+    比如要求节约内存时，使用SparseArray代替HashMap，同理还有SparseIntArray、SparseLongArray、SparseBooleanArray
+    比如SparseArray
+    private int[] mKeys;
+    private Object[] mValues;
+    2）合理的初始化集合大小，比如ArrayList、HashMap等，可根据实际业务需求进行合理的初始化
+    比如 明确知道List只有11条数据，则创建的时候指定大小
+     List list=new ArrayList<>(11);
+    3）根据查询次数或修改次数选择合适的集合类
+     比如对于List，如果查询多于修改，则使用ArrayList；如果修改多于查询，则使用LinkedList
+    4）是否需要同步
+     避免使用性能底下的同步集合类，比如HashTable、Vector
+     选择性能较高的集合类，比如同步的HashMap首选ConcurrentHashMap
+2、对象复用
+对于需要频繁创建和销毁的对象，尽量复用对象(比如对象池技术等)而不是新建，在对象使用完毕后，调用reset()重置对象状态，
+因为频繁的创建和销毁对象，容易造成内存抖动不说，频繁的GC容易导致页面卡顿。
+3、数据压缩
+比如图片压缩
+
+二、避免内存泄露
+常见内存泄露
+1、单例导致的内存泄露
+它的生命周期同应用的生命周期一样长，如果单例持有Activity等引用，需要及时释放。
+使用Context，建议使用Application Context。
+2、非静态内部类导致内存泄露
+常见就是Activity或者Fragment中匿名Handler对象造成的内存泄露
+造成原因，发送的Message中，msg.target=handler; 因此如果退出页面时，如果MessageQueue还未处理该条Message时，由于匿名handler对象对
+外部类Activity有隐式引用，造成Activity无法回收，从而造成Activity内存泄露。因此在退出页面时，需要调用handler.removeCallbacksAndMessages(null)移除所有未发送的消息。
+3、未取消注册或回调导致内存泄露
+比如代码注册的广播、一些异步接口回调等。
+4、资源未关闭导致的内存泄露
+文件流、Cursor等资源及时关闭；

@@ -1,0 +1,184 @@
+
+核心：利用主线程的Looper的Printer.println(string)。利用HandlerThread延迟去检测。
+public static void loop() {
+    ...
+
+    for (;;) {
+        ...
+
+        Printer logging = me.mLogging;
+        if (logging != null) {
+            logging.println(">>>>> Dispatching to " + msg.target + " " +
+                    msg.callback + ": " + msg.what);
+        }
+
+        msg.target.dispatchMessage(msg);
+
+        if (logging != null) {
+            logging.println("<<<<< Finished to " + msg.target + " " + msg.callback);
+        }
+
+        ...
+    }
+}
+
+BlockCanary.install(this, new BlockCanaryContext()).start()
+
+    public void start() {
+        if (!mMonitorStarted) {
+            mMonitorStarted = true;
+            Looper.getMainLooper().setMessageLogging(mBlockCanaryCore.monitor);
+        }
+    }
+
+
+class LooperMonitor implements Printer {
+
+    private static final int DEFAULT_BLOCK_THRESHOLD_MILLIS = 3000;
+
+    private long mBlockThresholdMillis = DEFAULT_BLOCK_THRESHOLD_MILLIS;
+    private long mStartTimestamp = 0;
+    private long mStartThreadTimestamp = 0;
+    private BlockListener mBlockListener = null;
+    private boolean mPrintingStarted = false;
+    private final boolean mStopWhenDebugging;
+
+    public interface BlockListener {
+        void onBlockEvent(long realStartTime,
+                          long realTimeEnd,
+                          long threadTimeStart,
+                          long threadTimeEnd);
+    }
+
+    public LooperMonitor(BlockListener blockListener, long blockThresholdMillis, boolean stopWhenDebugging) {
+        if (blockListener == null) {
+            throw new IllegalArgumentException("blockListener should not be null.");
+        }
+        mBlockListener = blockListener;
+        mBlockThresholdMillis = blockThresholdMillis;
+        mStopWhenDebugging = stopWhenDebugging;
+    }
+
+    @Override
+    public void println(String x) {
+        if (mStopWhenDebugging && Debug.isDebuggerConnected()) {
+            return;
+        }
+
+        //第一帧
+        if (!mPrintingStarted) {
+            mStartTimestamp = System.currentTimeMillis();
+            mStartThreadTimestamp = SystemClock.currentThreadTimeMillis();
+            mPrintingStarted = true;
+            startDump();
+        } else { //下一帧
+            final long endTime = System.currentTimeMillis();
+            mPrintingStarted = false;
+            if (isBlock(endTime)) {
+                notifyBlockEvent(endTime);
+            }
+            stopDump();
+        }
+    }
+
+    private boolean isBlock(long endTime) {
+        return endTime - mStartTimestamp > mBlockThresholdMillis;
+    }
+
+    private void notifyBlockEvent(final long endTime) {
+        final long startTime = mStartTimestamp;
+        final long startThreadTime = mStartThreadTimestamp;
+        final long endThreadTime = SystemClock.currentThreadTimeMillis();
+        HandlerThreadFactory.getWriteLogThreadHandler().post(new Runnable() {
+            @Override
+            public void run() {
+                mBlockListener.onBlockEvent(startTime, endTime, startThreadTime, endThreadTime);
+            }
+        });
+    }
+
+    private void startDump() {
+        //堆栈信息
+        if (null != BlockCanaryInternals.getInstance().stackSampler) {
+            BlockCanaryInternals.getInstance().stackSampler.start();
+        }
+       //cpu信息
+        if (null != BlockCanaryInternals.getInstance().cpuSampler) {
+            BlockCanaryInternals.getInstance().cpuSampler.start();
+        }
+    }
+
+    private void stopDump() {
+        if (null != BlockCanaryInternals.getInstance().stackSampler) {
+            BlockCanaryInternals.getInstance().stackSampler.stop();
+        }
+
+        if (null != BlockCanaryInternals.getInstance().cpuSampler) {
+            BlockCanaryInternals.getInstance().cpuSampler.stop();
+        }
+    }
+}
+
+class StackSampler extends AbstractSampler {
+    private Runnable mRunnable = new Runnable() {
+        @Override
+        public void run() {
+            doSample();
+
+            if (mShouldSample.get()) { //如果下一帧还未开始，延迟300ms继续检测
+                HandlerThreadFactory.getTimerThreadHandler()
+                        .postDelayed(mRunnable, 300);
+            }
+        }
+    };
+
+    public void start() {
+        if (mShouldSample.get()) {
+            return;
+        }
+        mShouldSample.set(true);
+
+        HandlerThreadFactory.getTimerThreadHandler().removeCallbacks(mRunnable);
+        //HandlerThread创建的looper  延迟800ms
+        HandlerThreadFactory.getTimerThreadHandler().postDelayed(mRunnable,800);
+    }
+    public void stop() {
+        if (!mShouldSample.get()) {
+            return;
+        }
+        mShouldSample.set(false);
+        //移除消息
+        HandlerThreadFactory.getTimerThreadHandler().removeCallbacks(mRunnable);
+    }
+
+   //获取线程栈
+    @Override
+    protected void doSample() {
+        StringBuilder stringBuilder = new StringBuilder();
+
+        for (StackTraceElement stackTraceElement : mCurrentThread.getStackTrace()) {
+            stringBuilder
+                    .append(stackTraceElement.toString())
+                    .append(BlockInfo.SEPARATOR);
+        }
+
+        synchronized (sStackMap) {
+            sStackMap.put(System.currentTimeMillis(), stringBuilder.toString());
+        }
+    }
+
+    public ArrayList<String> getThreadStackEntries(long startTime, long endTime) {
+        ArrayList<String> result = new ArrayList<>();
+        synchronized (sStackMap) {
+            for (Long entryTime : sStackMap.keySet()) { //根据时间戳获取线程栈信息
+                if (startTime < entryTime && entryTime < endTime) {
+                    result.add(BlockInfo.TIME_FORMATTER.format(entryTime)
+                            + BlockInfo.SEPARATOR
+                            + BlockInfo.SEPARATOR
+                            + sStackMap.get(entryTime));
+                }
+            }
+        }
+        return result;
+    }
+}

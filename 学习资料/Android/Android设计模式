@@ -1,0 +1,317 @@
+Android设计模式
+http://blog.csdn.net/bboyfeiyu/article/details/44563871
+
+1、单列模式
+在Android系统中，我们经常会通过Context获取系统级别的服务，比如WindowsManagerService, ActivityManagerService等，更常用的是一个叫LayoutInflater的类。
+这些服务会在合适的时候以单例的形式注册在系统中，在我们需要的时候就通过Context的getSystemService(String name)获取。
+比如
+LayoutInflater inflater = LayoutInflater.from(context);
+TelecomManager telephoneManager = (TelecomManager) getSystemService(Context.TELEPHONY_SERVICE);
+WindowManager windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+
+2、Builder模式
+模式的定义:将一个复杂对象的构建与它的表示分离，使得同样的构建过程可以创建不同的表示。
+
+在Android源码中，我们最常用到的Builder模式就是AlertDialog.Builder， 使用该Builder来构建复杂的AlertDialog对象。
+AlertDialog.Builder builder = new AlertDialog.Builder(context);
+    builder.setIcon(R.drawable.icon);
+    builder.setTitle("Title");
+    builder.setMessage("Message");
+    builder.setPositiveButton("Button1",
+            new DialogInterface.OnClickListener() {
+                public void onClick(DialogInterface dialog, int whichButton) {
+                    setTitle("点击了对话框上的Button1");
+                }
+            });
+    builder.create().show();  // 构建AlertDialog， 并且显示
+
+3、外观模式
+模式的定义
+外观模式(也成为门面模式)要求一个子系统的外部与其内部的通信必须通过一个统一的对象进行。它提供一个高层次的接口，使得子系统更易于使用。
+不使用该模式的情况下，客户端程序使用相关功能的成本就会比较的复杂，需要和各个子系统进行交互 ( 如上图 )，这样就使得系统的稳定性受到影响，用户的使用成本也相对较高。
+Client---->ContextImpl(封装对PackageManager、PowerManager等的访问)
+class ContextImpl extends Context {
+    private static AlarmManager sAlarmManager;
+    private static PowerManager sPowerManager;
+    private static ConnectivityManager sConnectivityManager;
+    private AudioManager mAudioManager;
+    private PackageManager mPackageManager;
+    private NotificationManager mNotificationManager = null;
+    private ActivityManager mActivityManager = null;
+
+    // 代码省略
+        @Override
+    public void sendBroadcast(Intent intent) {
+        String resolvedType = intent.resolveTypeIfNeeded(getContentResolver());
+        try {
+            ActivityManagerNative.getDefault().broadcastIntent(
+                mMainThread.getApplicationThread(), intent, resolvedType, null,
+                Activity.RESULT_OK, null, null, null, false, false);
+        } catch (RemoteException e) {
+        }
+    }
+
+
+        @Override
+    public void startActivity(Intent intent) {
+        if ((intent.getFlags()&Intent.FLAG_ACTIVITY_NEW_TASK) == 0) {
+            throw new AndroidRuntimeException(
+                    "Calling startActivity() from outside of an Activity "
+                    + " context requires the FLAG_ACTIVITY_NEW_TASK flag."
+                    + " Is this really what you want?");
+        }
+        mMainThread.getInstrumentation().execStartActivity(
+            getOuterContext(), mMainThread.getApplicationThread(), null, null, intent, -1);
+    }
+
+
+        @Override
+    public ComponentName startService(Intent service) {
+        try {
+            ComponentName cn = ActivityManagerNative.getDefault().startService(
+                mMainThread.getApplicationThread(), service,
+                service.resolveTypeIfNeeded(getContentResolver()));
+            if (cn != null && cn.getPackageName().equals("!")) {
+                throw new SecurityException(
+                        "Not allowed to start service " + service
+                        + " without permission " + cn.getClassName());
+            }
+            return cn;
+        } catch (RemoteException e) {
+            return null;
+        }
+    }
+}
+可以看到，ContextImpl内部有很多xxxManager类的对象，也就是我们上文所说的各种子系统的角色。比如打开Activity只需要调用startActivity，而不用和ActivityManagerNative交互。
+
+外观模式非常的简单，只是封装了子系统的操作，并且暴露接口让用户使用，避免了用户需要与多个子系统进行交互，降低了系统的耦合度、复杂度。如果没有外观模式的封装，那么用户就必须知道各个子系统的相关细节，子系统之间的交互必然造成纠缠不清的关系，影响系统的稳定性、复杂度。
+
+4、模板方法模式
+模式的定义：定义一个操作中的算法的框架，而将一些步骤延迟到子类中。使得子类可以不改变一个算法的结构即可重定义该算法的某些特定步骤。
+模板方法实际上是封装一个算法框架，就像是一套模板一样。而子类可以有不同的算法实现，在框架不被修改的情况下实现算法的替换。
+
+在Android中，使用了模板方法且为我们熟知的一个典型类就是AsyncTask了
+我们只需要构建AsyncTask对象，然后执行execute方法，它会依次执行onPreExecute,doInBackground,onPostExecute。
+它整个执行过程其实是一个框架，具体的实现都需要子类来完成。
+
+5、适配器模式
+ArrayAdapter、CursorAdapter
+
+6、观察者模式
+观察者(N)----被观察者(1)
+
+数据观察者，用于Adapter
+DataSetObservable : 被观察者
+DataSetObserver: 观察者
+
+内容观察者，用于ContentProvider和ContentResolver
+ContentObservable
+ContentObserver
+
+public abstract class DataSetObserver {
+
+    public void onChanged() {
+
+    }
+
+
+    public void onInvalidated() {
+
+    }
+}
+
+public abstract class BaseAdapter implements ListAdapter, SpinnerAdapter {
+    private final DataSetObservable mDataSetObservable = new DataSetObservable();
+    public boolean hasStableIds() {
+        return false;
+    }
+
+    public void registerDataSetObserver(DataSetObserver observer) {
+        mDataSetObservable.registerObserver(observer);
+    }
+
+    public void unregisterDataSetObserver(DataSetObserver observer) {
+        mDataSetObservable.unregisterObserver(observer);
+    }
+    //通知数据刷新
+    public void notifyDataSetChanged() {
+        mDataSetObservable.notifyChanged();
+    }
+
+    public void notifyDataSetInvalidated() {
+        mDataSetObservable.notifyInvalidated();
+    }
+ }
+我们再看看ListView.java
+ public void setAdapter(ListAdapter adapter) {
+    mDataSetObserver = new AdapterDataSetObserver();
+    mAdapter.registerDataSetObserver(mDataSetObserver);//给适配器注册观察者，当adapter.notifyDataSetChanged时，刷新UI
+ }
+
+7、策略模式
+策略模式定义了一系列的算法，并将每一个算法封装起来，而且使它们还可以相互替换。策略模式让算法独立于使用它的客户而独立变化。
+
+模式的使用场景
+针对同一类型问题的多种处理方式，仅仅是具体行为有差别时。
+需要安全的封装多种同一类型的操作时。
+出现同一抽象多个子类，而又需要使用if-else 或者 switch-case来选择时。
+
+通常如果一个问题有多个解决方案或者稍有区别的操作时，最简单的方式就是利用if-else or switch-case方式来解决，对于简单的解决方案这样做无疑是比较简单、方便、快捷的，但是如果解决方案中包括大量的处理逻辑需要封装，或者处理方式变动较大的时候则就显得混乱、复杂，而策略模式则很好的解决了这样的问题，它将各种方案分离开来，让操作者根据具体的需求来动态的选择不同的策略方案。
+
+Android中的时间插值器Interpolator就使用了策略模式
+
+Interpolator mInterpolator;  //成员变量
+public boolean getTransformation(long currentTime, Transformation outTransformation) {
+        //计算处理当前动画的时间点...  不同时间时间插值器使得时间非线性改变，才使得动画效果有快有慢
+        final float interpolatedTime = mInterpolator.getInterpolation(normalizedTime);
+        //后续处理，以此来应用动画效果...
+        applyTransformation(interpolatedTime, outTransformation);
+        return mMore;
+ }
+
+8、代理模式
+代理模式给某一个对象提供一个代理对象，并由代理对象控制对原对象的引用。
+代理对象可以在客户端和目标对象之间起到中介的作用。
+
+代理模式在Binder中的使用
+Binder是Android中的一个类，它实现了IBinder接口。
+从IPC角度来说，Binder是Android中的一种跨进程通信方式
+从Android Framework角度来说，Binder是ServiceManager连接各种Manager（ActivityManager、WindowManager，etc）和相应ManagerService的桥梁；
+从Android应用层来说，Binder是客户端和服务端进行通信的媒介，当你bindService的时候，服务端会返回一个包含了服务端业务调用的Binder对象，通过这个Binder对象，客户端就可以获取服务端提供的服务或者数据，这里的服务包括普通服务和基于AIDL的服务。
+
+Binder一个很重要的作用是：将客户端的请求参数通过Parcel包装后传到远程服务端，远程服务端解析数据并执行对应的操作，
+同时客户端线程挂起，当服务端方法执行完毕后，再将返回结果写入到另外一个Parcel中并将其通过Binder传回到客户端，
+客户端接收到返回数据的Parcel后，Binder会解析数据包中的内容并将原始结果返回给客户端，至此，整个Binder的工作过程就完成了。
+由此可见，Binder更像一个数据通道，Parcel对象就在这个通道中跨进程传输，至于双方如何通信，这并不负责，只需要双方按照约定好的规范去打包和解包数据即可。
+
+9、迭代器(Iterator)模式
+迭代器（Iterator）模式，又叫做游标（Cursor）模式。GOF给出的定义为：提供一种方法访问一个容器（container）对象中各个元素，而又不需暴露该对象的内部细节。
+Java JDK 1.2 版开始支持迭代器。每一个迭代器提供next()以及hasNext()方法
+Iterator模式就是分离了集合对象的遍历行为，抽象出一个迭代器类来负责，这样不暴露集合的内部结构，又可让外部代码透明的访问集合内部的数据。
+
+10、责任链模式
+Okhttp3就的interceptor就使用了责任链默认
+public interface Work{
+ public void fun();
+}
+public class A imple Work{
+ public setLeader(B)
+ public void fun(){
+   //自己解决不了 交给b
+   b.fun();
+ }
+}
+public class B imple Work{
+ public setLeader(C)
+ public void fun(){
+   //自己解决不了 交给C
+   C.fun();
+ }
+}
+public class C imple Work{
+ public setLeader()
+ public void fun(){
+
+ }
+}
+
+A a =new A();
+B b =new B();
+C c =new C();
+a.setLeader(b);
+b.setLeader(c);
+a.fun();//则依次由A，B，C处理
+
+Okhttp中处理请求的责任链模式
+OkhttpClient.java
+@Override public Call newCall(Request request) {
+ return new RealCall(this, request, false /* for web socket */);
+}
+final class RealCall implements Call {
+
+@Override public Response execute() throws IOException {
+    synchronized (this) {
+      if (executed) throw new IllegalStateException("Already Executed");
+      executed = true;
+    }
+    captureCallStackTrace();
+    try {
+      client.dispatcher().executed(this);
+      Response result = getResponseWithInterceptorChain();
+      if (result == null) throw new IOException("Canceled");
+      return result;
+    } finally {
+      client.dispatcher().finished(this);
+    }
+  }
+//采用责任链模式执行请求和处理响应
+Response getResponseWithInterceptorChain() throws IOException {
+    // 添加拦截器到集合中
+    List<Interceptor> interceptors = new ArrayList<>();
+    interceptors.addAll(client.interceptors());
+    interceptors.add(retryAndFollowUpInterceptor);
+    interceptors.add(new BridgeInterceptor(client.cookieJar()));
+    interceptors.add(new CacheInterceptor(client.internalCache()));
+    interceptors.add(new ConnectInterceptor(client));
+    if (!forWebSocket) {
+      interceptors.addAll(client.networkInterceptors());
+    }
+    interceptors.add(new CallServerInterceptor(forWebSocket));
+
+    //创建责任链
+    Interceptor.Chain chain = new RealInterceptorChain(
+        interceptors, null, null, null, 0, originalRequest);
+    return chain.proceed(originalRequest);//处理请求
+  }
+}
+
+public final class RealInterceptorChain implements Interceptor.Chain {
+@Override public Response proceed(Request request) throws IOException {
+    return proceed(request, streamAllocation, httpCodec, connection);
+  }
+
+  public Response proceed(Request request, StreamAllocation streamAllocation, HttpCodec httpCodec,
+      Connection connection) throws IOException {
+
+       // 执行下一次拦截器
+        RealInterceptorChain next = new RealInterceptorChain(
+            interceptors, streamAllocation, httpCodec, connection, index + 1, request);
+        Interceptor interceptor = interceptors.get(index);
+        Response response = interceptor.intercept(next);
+
+        return response;
+      }
+}
+
+public final class XXInterceptor implements Interceptor {
+  @Override
+  public Response intercept(Chain chain) throws IOException {
+    //封装请求 ......
+    //调用下一个Interceptor处理请求
+    Response networkResponse = chain.proceed(requestBuilder.build());
+    //处理响应信息
+  }
+}
+
+ViewGroup事件投递的递归调用就类似于一条责任链，一旦其寻找到责任者，那么将由责任者持有并消费掉该次事件，具体的体现在View的onTouchEvent方法中返回值的设置（这里介于篇幅就不具体介绍ViewGroup对事件的处理了），如果onTouchEvent返回false那么意味着当前View不会是该次事件的责任人将不会对其持有，如果为true则相反，此时View会持有该事件并不再向外传递。
+
+11、命令模式
+模式的定义：将一个请求封装成一个对象，从而使你可用不同的请求对客户进行参数化，对请求排队或记录请求日志，以及支持可撤销的操作。
+模式的使用场景：
+系统需要将请求调用者和请求接收者解耦，使得调用者和接收者不直接交互。
+系统需要在不同的时间指定请求、将请求排队和执行请求。
+系统需要支持命令的撤销(Undo)操作和恢复(Redo)操作。
+系统需要将一组操作组合在一起，即支持宏命令。
+
+//创建一个命令接收者
+ReceiverRole receiverRole1 = new ReceiverRole();
+
+//创建一个命令的具体实现对象，并指定命令接收者
+Command command1 = new ConcreteCommandImpl1(receiverRole1);
+Command command2 = new ConcreteCommandImpl2(receiverRole1);
+
+InvokerRole invokerRole = new InvokerRole();//创建一个命令调用者
+invokerRole.setCommand1(command1);//为调用者指定命令对象1
+invokerRole.setCommand2(command2);//为调用者指定命令对象2
+invokerRole.invoke(0);              //发起调用命令请求
+invokerRole.invoke(1);              //发起调用命令请求

@@ -1,0 +1,414 @@
+参考：
+http://blog.csdn.net/singwhatiwanna/article/details/50775201
+点击事件是由用户的触摸行为所产生的，因此它必须要通过硬件来捕获，然后点击事件会交给WMS来处理。
+
+public class Activity extends ContextThemeWrapper
+              implements  Window.Callback{
+1、Activity的makeVisibile()
+    void makeVisible() {
+        if (!mWindowAdded) {
+            ViewManager wm = getWindowManager();
+            wm.addView(mDecor, getWindow().getAttributes()); //调用WindowManagerImpl的addView
+            mWindowAdded = true;
+        }
+        mDecor.setVisibility(View.VISIBLE);
+    }
+    void  attach(.....){
+       .........
+        mWindow = new PhoneWindow(this, window);
+        mWindow.setWindowControllerCallback(this);
+        mWindow.setCallback(this); //将Activity注入到PhoneWindow中，mWindow持有了Activity的引用，，因此，事件是从Window传递给了Activity
+       ........
+    }
+}
+2、WindowManagerImpl
+public final class WindowManagerImpl implements WindowManager {
+    private final WindowManagerGlobal mGlobal = WindowManagerGlobal.getInstance();
+
+    public void addView(@NonNull View mDecor, @NonNull ViewGroup.LayoutParams params) {
+        applyDefaultToken(params);
+        mGlobal.addView(mDecor, params, mContext.getDisplay(), mParentWindow);
+    }
+}
+3、WindowManagerGlobal
+public final class WindowManagerGlobal {
+    public void addView(View mDecor, ViewGroup.LayoutParams params,Display display, Window parentWindow) {
+
+            final WindowManager.LayoutParams wparams = (WindowManager.LayoutParams) params;
+            ..................
+            ViewRootImpl root;
+            root = new ViewRootImpl(view.getContext(), display); //创建ViewRootImpl
+            mDecor.setLayoutParams(wparams); //给DecorView设置layoutParam
+
+            root.setView(mDecor, wparams, panelParentView);
+    }
+}
+4、ViewRootImpl
+public final class ViewRootImpl implements ViewParent{
+    public void setView(View mDecor, WindowManager.LayoutParams attrs, View panelParentView) {
+            if (mView == null) {
+                mView = mDecor;
+                 //初始化事件相关类
+                mInputChannel = new InputChannel();
+                if (mInputChannel != null) {
+                    if (mInputQueueCallback != null) {
+                        mInputQueue = new InputQueue();
+                        mInputQueueCallback.onInputQueueCreated(mInputQueue);
+                    }
+                    //初始化事件接收器
+                    mInputEventReceiver = new WindowInputEventReceiver(mInputChannel,
+                            Looper.myLooper());
+                }
+             }
+    }
+}
+
+点击事件是由用户的触摸行为所产生的，因此它必须要通过硬件来捕获，然后调用WindowInputEventReceiver的dispatchInputEvent()
+------WindowInputEventReceiver{
+
+    // Called from native code.
+    private void dispatchInputEvent(int seq, InputEvent event) {
+        onInputEvent(event);
+    }
+
+    @Override
+    public void onInputEvent(InputEvent event) {
+        enqueueInputEvent(event, this, 0, true);
+    }
+
+}
+------ViewRootImpl
+    //分发事件
+    public void dispatchInputEvent(InputEvent event) {
+        dispatchInputEvent(event, null);
+    }
+
+    public void dispatchInputEvent(InputEvent event, InputEventReceiver receiver) {
+        SomeArgs args = SomeArgs.obtain();
+        args.arg1 = event;
+        args.arg2 = receiver;
+        Message msg = mHandler.obtainMessage(MSG_DISPATCH_INPUT_EVENT, args);
+        msg.setAsynchronous(true);
+        mHandler.sendMessage(msg); //发送事件
+    }
+    final class ViewRootHandler extends Handler {
+        @Override
+        public void handleMessage(Message msg) {
+             case MSG_DISPATCH_INPUT_EVENT:  //事件分发
+                 SomeArgs args = (SomeArgs)msg.obj;
+                 InputEvent event = (InputEvent)args.arg1;
+                 InputEventReceiver receiver = (InputEventReceiver)args.arg2;
+                 enqueueInputEvent(event, receiver, 0, true); //加入到事件队列中
+                 args.recycle();
+              break;
+      }
+    }
+    //事件队列
+    void enqueueInputEvent(InputEvent event,
+            InputEventReceiver receiver, int flags, boolean processImmediately) {
+          ..........
+        if (processImmediately) { //立即处理
+            doProcessInputEvents();
+        } else {
+            scheduleProcessInputEvents();
+        }
+    }
+    void doProcessInputEvents() {
+        while (mPendingInputEventHead != null) {
+             ..............
+            mChoreographer.mFrameInfo.updateInputEventTime(eventTime, oldestEventTime);
+
+            deliverInputEvent(q); //分发事件
+        }
+     }
+   }
+    private void deliverInputEvent(QueuedInputEvent q) {
+        ............
+        InputStage stage;
+        if (q.shouldSendToSynthesizer()) {
+            stage = mSyntheticInputStage; //ViewPostImeInputStage
+        } else {
+            stage = q.shouldSkipIme() ? mFirstPostImeInputStage : mFirstInputStage;
+        }
+
+        if (stage != null) {
+            stage.deliver(q); //会调用到ViewPostImeInputStage.processPointerEvent()
+        } else {
+            finishInputEvent(q);
+        }
+    }
+    final class ViewPostImeInputStage extends InputStage {
+        private int processPointerEvent(QueuedInputEvent q) {
+            final MotionEvent event = (MotionEvent)q.mEvent;
+              View  view =mDecor;
+            boolean handled = view.dispatchPointerEvent(event);
+            return handled ? FINISH_HANDLED : FORWARD;
+        }
+    }
+----View
+        public final boolean dispatchPointerEvent(MotionEvent event) {
+            if (event.isTouchEvent()) {
+                return dispatchTouchEvent(event); //回调到DecorView中的dispatchTouchEvent
+            } else {
+                return dispatchGenericMotionEvent(event);
+            }
+        }
+----DecorView
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        final Window.Callback cb = mWindow.getCallback();
+        //回调Window.Callback.dispatchTouchEvent(ev)
+        //由于Activity实现了Window.Callback, （在Activity的onAttach中注册的），这样就事件回调到了Activity中
+        return cb != null && !mWindow.isDestroyed() && mFeatureId < 0
+                ? cb.dispatchTouchEvent(ev) : super.dispatchTouchEvent(ev);
+    }
+     //由Activity的dispatchTouchEvent中调用
+    @Override
+    public boolean superDispatchTouchEvent(MotionEvent event) {
+        return mDecor.superDispatchTouchEvent(event); //回调到ViewGroup的dispatchTouchEvent中
+    }
+
+----事件回调到Activity中
+1、触摸事件默认都是从Activity的DispatchTouchEvent开发分发的
+public boolean dispatchTouchEvent(MotionEvent ev) {
+    if (ev.getAction() == MotionEvent.ACTION_DOWN) {
+        onUserInteraction();
+    }
+    if (getWindow().superDispatchTouchEvent(ev)) { //然后将事件传递给Window
+        return true;
+    }
+    return onTouchEvent(ev); //如View都不消费事件
+}
+
+2、PhoneWindow中,交给DecorView的superDispatchTouchEvent处理
+@Override
+public boolean superDispatchTouchEvent(MotionEvent event) {
+    return mDecor.superDispatchTouchEvent(event);//交给DecorView处理
+}
+
+3、DecorView中处理dispatchTouchEvent
+private final class DecorView extends FrameLayout{
+       public boolean superDispatchTouchEvent(MotionEvent event) {
+            return super.dispatchTouchEvent(event); //回调到ViewGroup中的dispatchTouchEvent
+        }
+}
+4、ViewGroup
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+
+             boolean intercepted=false;
+            //触摸事件按下时，首先判断子View不允许拦截子类是否调用了requestDisallowInterceptTouchEvent
+            if (actionMasked == MotionEvent.ACTION_DOWN
+                    || mFirstTouchTarget != null) {
+                final boolean disallowIntercept = (mGroupFlags & FLAG_DISALLOW_INTERCEPT) != 0;
+                if (disallowIntercept) {
+                    intercepted = false; //子类不允许父类拦截事件
+                } else {
+                    intercepted = onInterceptTouchEvent(ev); //交给自己的onInterceptTouchEvent,返回true则表示消耗事件
+                    ev.setAction(action);
+                }
+            } else {
+                intercepted = true;
+            }
+
+
+            //便利所有child，向下传递事件，并将事件触摸对象添加到链表中
+            if(!intercepted){
+                 for (int i = childrenCount - 1; i >= 0; i--) {
+                    final View child =getChild();
+                    if(dispatchTransformedTouchEvent(event,child)){
+                            final TouchTarget target = TouchTarget.obtain(child, pointerIdBits);
+                            target.next = mFirstTouchTarget;
+                            mFirstTouchTarget = target;
+                    }
+                  }
+            }
+
+          //开始处理触摸事件链表
+          boolean handled = false;
+            if (mFirstTouchTarget == null) {
+                handled = dispatchTransformedTouchEvent(ev, null);
+            } else {
+                TouchTarget target = mFirstTouchTarget;
+                while (target != null) {
+                    final TouchTarget next = target.next; //得到下一个事件
+                    if (dispatchTransformedTouchEvent(ev, target.child)) {
+                        handled = true;
+                    }
+                    target = next;
+                }
+            }
+           return handled;
+    }
+    private boolean dispatchTransformedTouchEvent(MotionEvent event,View child) {
+        final boolean handled;
+        if (child == null) {
+            handled = super.dispatchTouchEvent(event);
+        } else {
+            handled = child.dispatchTouchEvent(event);
+          }
+        return handled;
+     }
+
+
+ --------------------super.dispatchTouchEvent 即View中的dispatchTouchEvent----------
+            //View中的dispatchTouchEvent
+            ListenerInfo li = mListenerInfo;
+            if (li != null && li.mOnTouchListener != null
+                    && (mViewFlags & ENABLED_MASK) == ENABLED
+                    && li.mOnTouchListener.onTouch(this, event)) { // 1、处理onTouchListener
+                result = true;
+            }
+
+            if (!result && onTouchEvent(event)) { //2、调用onTouchEvent
+                result = true;
+            }
+
+            //View中的onTouchEvent
+            case ACTION_UP:
+                   performClick(); //3、处理点击事件
+             break;
+
+    @Override
+    public void requestDisallowInterceptTouchEvent(boolean disallowIntercept) {
+        if (disallowIntercept == ((mGroupFlags & FLAG_DISALLOW_INTERCEPT) != 0)) {
+            return;
+        }
+        if (disallowIntercept) {
+            mGroupFlags |= FLAG_DISALLOW_INTERCEPT;
+        } else {
+            mGroupFlags &= ~FLAG_DISALLOW_INTERCEPT;
+        }
+
+        // Pass it up to our parent
+        if (mParent != null) {
+            mParent.requestDisallowInterceptTouchEvent(disallowIntercept);
+        }
+    }
+
+Activity
+   ---dispatchTouchEvent
+   ---OnTouchEvent
+ViewGroup
+   ---dispatchTouchEvent
+   ---onInterceptTouchEvent
+   ---OnTouchEvent
+View
+   ---dispatchTouchEvent
+   ---OnTouchEvent
+
+二、dispatchTouchEvent->onInterceptTouchEvent->onTouchEvent
+Activity
+   --RootLinearLayout
+     --MyRelativeLayout
+        --MyTextView
+
+ Activity------dispatchTouchEvent-------ACTION_DOWN
+ RootLinearLayout------dispatchTouchEvent-------ACTION_DOWN
+ RootLinearLayout------onInterceptTouchEvent-------ACTION_DOWN
+ MyRelativeLayout------dispatchTouchEvent-------ACTION_DOWN
+ MyRelativeLayout------onInterceptTouchEvent-------ACTION_DOWN
+ MyTextView------dispatchTouchEvent-------ACTION_DOWN
+ MyTextView------onTouchEvent-------ACTION_DOWN
+ MyRelativeLayout------onTouchEvent-------ACTION_DOWN
+ RootLinearLayout------onTouchEvent-------ACTION_DOWN
+ Activity------onTouchEvent-------ACTION_DOWN
+ Activity------dispatchTouchEvent-------ACTION_MOVE
+ Activity------onTouchEvent-------ACTION_MOVE
+ Activity------dispatchTouchEvent------ACTION_UP
+ Activity------onTouchEvent------ACTION_UP
+
+
+1、ViewGroup
+   dispatchTouchEvent->onInterceptTouchEvent，如果不拦截事件，则继续向下分发，否则交给自己的onTouchEvent处理
+   如果dispatchTouchEvent返回true，则不交给自己的onInterceptTouchEvent，所以很少去重写dispatchTouchEvent方法，而是重写onInterceptTouchEvent
+2、View
+   dispatchTouchEvent->onTouchEvent
+
+onTouchEvent返回false，表示不消费事件，交由父类去处理，并且不再接受后续事件，比如ActionDown返回false，则不再接收ActionMove和ActionUp。
+
+三、OnTouchListener & OnClickListener
+给View设置onTouchListener，则onTouch方法会比onTouchEvent先执行，我们看看View中的dispatchTouchEvent方法
+onClickListener或onLongClickListener会比onTouchEvent后执行
+
+public class View {
+ public boolean dispatchTouchEvent(MotionEvent event) {
+
+        boolean result = false;
+        if (onFilterTouchEventForSecurity(event)) {
+            ListenerInfo li = mListenerInfo;
+            if (li != null && li.mOnTouchListener != null
+                    && (mViewFlags & ENABLED_MASK) == ENABLED
+                    && li.mOnTouchListener.onTouch(this, event)) { //先执行onTouch
+                result = true;
+            }
+
+           //如果onTouch不消费事件，则交由onTouchEvent执行
+            if (!result && onTouchEvent(event)) {
+                result = true;
+            }
+        }
+        return result;
+    }
+
+ public boolean onTouchEvent(MotionEvent event) {
+        final float x = event.getX();
+        final float y = event.getY();
+        final int viewFlags = mViewFlags;
+        final int action = event.getAction();
+
+        //先处理onTouchEvent
+        if (mTouchDelegate != null) {
+            if (mTouchDelegate.onTouchEvent(event)) { //如果消费了onTouchEvent，则直接返回
+                return true;
+            }
+        }
+        //再处理onClick，onLongClick
+        if (((viewFlags & CLICKABLE) == CLICKABLE ||
+                (viewFlags & LONG_CLICKABLE) == LONG_CLICKABLE) ||
+                (viewFlags & CONTEXT_CLICKABLE) == CONTEXT_CLICKABLE) {
+            switch (action) {
+                case MotionEvent.ACTION_UP:
+                    boolean prepressed = (mPrivateFlags & PFLAG_PREPRESSED) != 0;
+                            if (!focusTaken) {
+                                if (mPerformClick == null) {
+                                    mPerformClick = new PerformClick();
+                                }
+
+                                if (!post(mPerformClick)) {
+                                    performClick(); //执行点击事件
+                                }
+                            }
+                    break;
+                case MotionEvent.ACTION_DOWN:
+                    break;
+                case MotionEvent.ACTION_CANCEL:
+                    break;
+
+                case MotionEvent.ACTION_MOVE:
+                    break;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+     //执行点击事件
+    public boolean performClick() {
+        final boolean result;
+        final ListenerInfo li = mListenerInfo;
+        if (li != null && li.mOnClickListener != null) {
+            playSoundEffect(SoundEffectConstants.CLICK); //点击音效
+            li.mOnClickListener.onClick(this); //执行onClick
+            result = true;
+        } else {
+            result = false;
+        }
+
+        sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_CLICKED); //发送点击事件
+        return result;
+    }
+
+
+}

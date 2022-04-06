@@ -1,0 +1,21 @@
+
+Trace View
+主要用来分析方法执行时长，解决页面卡顿问题。
+
+一、通过Android studio自带的traceview查看（Android profiler）。
+打开CPU Profiler界面。开始记录（Record）堆栈（此时按钮变灰色），记录一段时间段后，再点击下停止记录（此时按钮变红色）。
+
+
+二、通过Android SDK自带的Debug。
+
+在开始记录的点写上代码Debug.startMethodTracing("tracePath");
+在终止记录的点写上代码Debug.stopMethodTracing();
+通过adb pull /mnt/sdcard/tracePath.trace .将trace导出指定的文件夹中
+通过Android studio打开trace文件，界面同CPU Profiler差不多。
+
+三、通过DDMS中的traceview查看。
+打开DDMS
+{sdk}\tools\monitor.bat
+选择某个进程..点击 start method profiling，执行操作，然后再次点击停止，自动生成.trace文件。
+直接在底部搜索 方法入口，查看各方法的执行时长，分析卡顿原因。
+http://blog.csdn.net/itfootball/article/details/48792435

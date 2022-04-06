@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.review.fragment">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+
+    <application
+        android:allowBackup="true"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/AppTheme">
+        <activity
+            android:name=".HomeActivity"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".retain.SavedInstanceStateUsingActivity"></activity>
+        <activity android:name=".retain.FragmentRetainDataActivity"></activity>
+        <!-- 低版本的API只需要加入orientation，而高版本的则需要加入screenSize。 -->
+        <activity
+            android:name=".retain.ConfigChangesTestActivity"
+            android:configChanges="screenSize|orientation"></activity>
+
+        <activity android:name=".retain.FixProblemsActivity"></activity>
+        <activity
+            android:name=".lifecycle.LifeCycleAct"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:screenOrientation="sensor" />
+        <activity android:name=".backstack.BackStackActivity" />
+        <activity android:name=".retain.RetainHomeActivity" />
+        <activity android:name=".adapter.FragmentStatePagerAdapterAct" />
+        <activity android:name=".adapter.FragmentPagerAdapterAct" />
+        <activity android:name=".adapter.AdapterAct" />
+        <activity android:name=".adapter.TabAct" />
+    </application>
+
+</manifest>

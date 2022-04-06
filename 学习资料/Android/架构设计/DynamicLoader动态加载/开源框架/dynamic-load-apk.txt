@@ -1,0 +1,18 @@
+---------------------------dynamic-load-apk 
+采用代理Activity
+https://github.com/singwhatiwanna/dynamic-load-apk
+
+DL支持的功能:
+plugin无需安装即可由宿主调起。
+支持多进程模式，插件可以运行在单独的DL进程中(代码在lab分支)
+支持插件中的so库(代码在dev分支)
+支持用R访问plugin资源
+plugin支持Activity和FragmentActivity（未来还将支持其他组件）
+基本无反射调用
+插件安装后仍可独立运行从而便于调试
+支持3种plugin对host的调用模式：
+（1）无调用（但仍然可以用反射调用）。
+（2）部分调用，host可公开部分接口供plugin调用。 这前两种模式适用于plugin开发者无法获得host代码的情况。
+（3）完全调用，plugin可以完全调用host内容。这种模式适用于plugin开发者能获得host代码的情况。
+只需引入DL的一个jar包即可高效开发插件，DL的工作过程对开发者完全透明
+支持android2.x版本

@@ -1,0 +1,46 @@
+----------------- Systrace ----------
+Systrace主要是用来分析UI性能
+http://blog.csdn.net/hfreeman2008/article/details/53538155
+https://developer.android.com/studio/profile/systrace.html
+
+评估容器性能，查找代码运行的性能瓶颈
+
+要求
+Android SDK Tools 20 or later installed。
+安装python，并配置了环境变量
+Android4.1或更高系统，设备允许USB调试
+
+
+命令行
+参考 https://developer.android.com/studio/profile/systrace-commandline.html
+$ python systrace.py [options] [category1] [category2] ... [categoryN]
+比如：
+$ python systrace.py --time=10 -o trace.html sched gfx view wm
+输出文件为trace.html, 选项为sched gfx view wm
+
+分析输出的html结果
+可以通过键盘来放大、缩小、移动。 
+w:用于变大 
+s:用于缩小 
+d:左边移动 
+a:右边移动 
+点击右上角的 ？ 查看帮助
+
+点击一块Frames中的F来查看，按下m键查看这一帧到下一帧所花费的时间以及哪个方法被调用的最长。
+
+水平轴向是时间，垂直轴向按进程分组，顺序为 Kernel, SurfaceFlinger、apps
+绿色表示该Frame在16ms内，黄色和红色则表示超过16ms，红色最严重，是需要优化的地方。
+
+注意：
+1、嵌套使用
+ endSection()会与最近的beiginSection(string)匹配，注意begin和end的匹配。
+2、Trace的begin和end 必须在同一线程中。不能在一个线程中调用beginSection，然后在其他一个线程中调用endSection
+3、如果在try...catch语句块中调用Trace，记得在finally中调用endSection，保证是匹配的
+    try {
+        Trace.beginSection("MyAdapter.queryDatabase");
+         .......
+    } catch (Exection e){
+      
+    } finally {
+        Trace.endSection();
+    }

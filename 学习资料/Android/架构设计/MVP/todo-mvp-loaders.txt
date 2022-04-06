@@ -1,0 +1,317 @@
+
+Activity--->Presenter(持有Loader)----Respository(内存级缓存、本地缓存、网络请求)
+相比todo-mvp，有一下特性：
+1、数据异步查询，并且查询工作放到Loader中，并且Respository不需要提供查询的Callback，查询会回调给Loader
+2、Loader调用Respository注册数据变化监听，当数据变化时，可重新加载数据
+3、当Activity屏幕发生改变时，由于LoaderManager不会重建，会维护Loader之前的状态。
+
+缺点：
+由于数据加载依赖于Loader，单元测试比较困难
+
+基类
+public interface BaseView<T> {
+
+    void setPresenter(T presenter);//将presenter注入到View中
+
+}
+public interface BasePresenter {
+    void start();
+}
+
+
+public interface TasksContract {
+     //该模块的View
+    interface View extends BaseView<Presenter> {
+       ...........更新UI逻辑
+    }
+     //该模块的Presenter
+    interface Presenter extends BasePresenter {
+       ...........操作respository的api
+    }
+}
+
+//创建Loader，继承AsyncTaskLoader
+public class TasksLoader extends AsyncTaskLoader<List<Task>>
+        implements TasksRepository.TasksRepositoryObserver{
+
+    private TasksRepository mRepository;
+
+    public TasksLoader(Context context, @NonNull TasksRepository repository) {
+        super(context);
+        mRepository = repository;
+    }
+
+    @Override
+    public List<Task> loadInBackground() {
+        return mRepository.getTasks(); //加载数据
+    }
+
+    @Override
+    public void deliverResult(List<Task> data) {
+        if (isReset()) {
+            return;
+        }
+
+        if (isStarted()) {
+            super.deliverResult(data);
+        }
+
+    }
+
+    @Override
+    protected void onStartLoading() {
+        // 如果缓存可用，则获取缓存并返回
+        if (mRepository.cachedTasksAvailable()) {
+            deliverResult(mRepository.getCachedTasks());
+        }
+
+        // 注册数据变化监听
+        mRepository.addContentObserver(this);
+
+		//本地缓存不可用，则重新加载
+        if (takeContentChanged() || !mRepository.cachedTasksAvailable()) {
+            // When a change has  been delivered or the repository cache isn't available, we force
+            // a load.
+            forceLoad();
+        }
+    }
+
+    @Override
+    protected void onStopLoading() {
+        cancelLoad();
+    }
+
+    @Override
+    protected void onReset() {
+        onStopLoading();
+        mRepository.removeContentObserver(this); //注销监听器
+    }
+
+    @Override
+    public void onTasksChanged() {
+        if (isStarted()) {
+            forceLoad();
+        }
+    }
+}
+
+一、UI
+-----Activity
+TasksFragment tasksFragment =TasksFragment.newInstance();
+ActivityUtils.addFragmentToActivity(
+                    getSupportFragmentManager(), tasksFragment, R.id.contentFrame);
+
+//创建Loader
+TasksLoader tasksLoader = new TasksLoader(getApplicationContext(), repository);
+//创建Presenter
+mTasksPresenter = new TasksPresenter(
+		tasksLoader,
+		getSupportLoaderManager(),
+		repository,
+		tasksFragment
+);
+-----Fragment
+public class TasksFragment extends Fragment implements TasksContract.View {
+    private TasksContract.Presenter mPresenter;
+    @Override
+    public void onResume() {
+        super.onResume();
+        mPresenter.start(); //onResume中订阅
+    }
+
+    @Override
+    public void setPresenter(@NonNull TasksContract.Presenter presenter) {
+        mPresenter = presenter;
+    }
+}
+
+二、Presenter
+public class TasksPresenter implements TasksContract.Presenter,
+        LoaderManager.LoaderCallbacks<List<Task>> {
+
+    private final TasksRepository mTasksRepository; //数据模块
+    private final TasksContract.View mTasksView; //View模块
+    private final TasksLoader mLoader;
+    private final LoaderManager mLoaderManager;
+	
+    private boolean mFirstLoad = true;
+
+    public TasksPresenter(@NonNull TasksLoader loader, @NonNull LoaderManager loaderManager,
+					  @NonNull TasksRepository tasksRepository, @NonNull TasksContract.View tasksView) {
+	mLoader = loader;
+	mLoaderManager = loaderManager;
+	mTasksRepository = tasksRepository;
+	mTasksView = tasksView;
+
+	mTasksView.setPresenter(this);
+   }
+   
+   @Override
+   public void start() {
+      mLoaderManager.initLoader(TASKS_QUERY, null, this); //加载数据
+   }
+	
+   @Override
+   public Loader<List<Task>> onCreateLoader(int id, Bundle args) {
+        mTasksView.setLoadingIndicator(true);
+        return mLoader; //将loader返回
+   }
+
+   @Override
+   public void onLoadFinished(Loader<List<Task>> loader, List<Task> data) {
+        mTasksView.setLoadingIndicator(false);
+
+        mCurrentTasks = data;
+        if (mCurrentTasks == null) {
+            mTasksView.showLoadingTasksError();
+        } else {
+            showFilteredTasks();
+        }
+    }
+	@Override
+    public void onLoaderReset(Loader<List<Task>> loader) {
+        // no-op
+    }
+
+	
+三、Respository
+//定义数据接口
+public interface TasksDataSource {
+     
+	 //注意是回调给Respository的 ，Presenter不需要（通过Loader回调）
+    interface GetTaskCallback {
+
+        void onTaskLoaded(Task task);
+
+        void onDataNotAvailable();
+    }
+
+    @Nullable
+    List<Task> getTasks();
+
+    @Nullable
+    Task getTask(@NonNull String taskId);
+
+}
+
+//本地缓存（数据库）实现接口
+public class TasksLocalDataSource implements TasksDataSource {
+    private static TasksLocalDataSource INSTANCE;
+    private TasksDbHelper mDbHelper;
+	private SQLiteDatabase mDb;
+
+    private TasksLocalDataSource(@NonNull Context context) {
+        mDbHelper = new TasksDbHelper(context);
+		mDb = mDbHelper.getWritableDatabase();
+    }
+    // 单列模式
+    public static TasksLocalDataSource getInstance(@NonNull Context context) {
+        if (INSTANCE == null) {
+            INSTANCE = new TasksLocalDataSource(context);
+        }
+        return INSTANCE;
+    }
+}
+
+//网络数据，实现相同的接口
+public class TasksRemoteDataSource implements TasksDataSource {
+
+    private static TasksRemoteDataSource INSTANCE;
+    private TasksRemoteDataSource() {}	
+	//单列模式
+    public static TasksRemoteDataSource getInstance() {
+        if (INSTANCE == null) {
+            INSTANCE = new TasksRemoteDataSource();
+        }
+        return INSTANCE;
+    }
+}
+ 
+//Respository，实现相同数据操作接口
+public class TasksRepository implements TasksDataSource {
+
+    private static TasksRepository INSTANCE = null;
+    private final TasksDataSource mTasksRemoteDataSource;//网络数据
+    private final TasksDataSource mTasksLocalDataSource; //本地缓存
+	 //数据变化监听器
+	private List<TasksRepositoryObserver> mObservers = new ArrayList<TasksRepositoryObserver>();
+
+    /**
+     * 内存级缓存数据
+     */
+    Map<String, Task> mCachedTasks;
+
+    /**
+     * true表示缓存已失效  需要从网络更新
+     */
+    boolean mCacheIsDirty = false;
+
+	//数据变化监听器，当数据变化时通知Loader更新
+    public interface TasksRepositoryObserver {
+
+        void onTasksChanged();
+
+    }
+	
+    private TasksRepository(@NonNull TasksDataSource tasksRemoteDataSource,
+                            @NonNull TasksDataSource tasksLocalDataSource) {
+        mTasksRemoteDataSource = tasksRemoteDataSource;
+        mTasksLocalDataSource = tasksLocalDataSource;
+    }
+	 //单列模式
+	public static TasksRepository getInstance(TasksDataSource tasksRemoteDataSource,
+										  TasksDataSource tasksLocalDataSource) {
+	if (INSTANCE == null) {
+		INSTANCE = new TasksRepository(tasksRemoteDataSource, tasksLocalDataSource);
+	}
+	return INSTANCE;
+   }
+   
+   public void addContentObserver(TasksRepositoryObserver observer) {
+        if (!mObservers.contains(observer)) {
+            mObservers.add(observer);
+        }
+    }
+
+    public void removeContentObserver(TasksRepositoryObserver observer) {
+        if (mObservers.contains(observer)) {
+            mObservers.remove(observer);
+        }
+    }
+
+    private void notifyContentObserver() {
+        for (TasksRepositoryObserver observer : mObservers) {
+            observer.onTasksChanged();
+        }
+    }
+	
+       @Override
+    public List<Task> getTasks() {
+
+        List<Task> tasks = null;
+
+        if (!mCacheIsDirty) {
+            // 从内存缓存中获取数据
+            if (mCachedTasks != null) {
+                tasks = getCachedTasks();
+                return tasks;
+            } else {
+                // 从本地缓存中获取数据
+                tasks = mTasksLocalDataSource.getTasks();
+            }
+        }
+        // 
+        if (tasks == null || tasks.isEmpty()) {
+            // 从网络中获取数据
+            tasks = mTasksRemoteDataSource.getTasks();
+            // 保存到本地缓存中
+            saveTasksInLocalDataSource(tasks);
+        }
+
+        processLoadedTasks(tasks);
+        return getCachedTasks();
+
+    }
+ }  
+
+

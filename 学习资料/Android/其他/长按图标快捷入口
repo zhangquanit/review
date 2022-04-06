@@ -1,0 +1,55 @@
+
+一、android 7.0 shortcuts快捷入口
+https://blog.csdn.net/qibin0506/article/details/52878690
+
+二、android8.0快捷键
+不在接受shortcut广播
+
+二、魅族桌面长按图标快捷入口
+http://open-wiki.flyme.cn/index.php?title=%E6%A1%8C%E9%9D%A2%E9%87%8D%E5%8E%8B%E8%8F%9C%E5%8D%95%E9%80%82%E9%85%8D
+
+1、AndroidManifest添加meta-data
+    <meta-data
+        android:name="android.3dtouch.launcher_menu"
+        android:resource="@xml/launcher_menu" />
+
+2、Activity层级下增加IntentFilter
+<intent-filter>
+    <action android:name="android.intent.action.VIEW" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <category android:name="android.intent.category.BROWSABLE" />
+
+    <data
+        android:host="com.meizu.media.reader"
+        android:path="/message"
+        android:scheme="flyme_3dtouch" />
+    <data
+        android:host="com.meizu.media.reader"
+        android:path="/rss"
+        android:scheme="flyme_3dtouch" />
+</intent-filter>
+
+3、工程res/xml下增加文件launcher_menu.xml
+<?xml version="1.0" encoding="utf-8"?>
+<launcher_menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <menu android:title="@string/msg1" data="flyme_3dtouch://com.meizu.media.reader/message" icon="&#xe005;" />
+    <menu android:title="@string/msg2" data="flyme_3dtouch://com.meizu.media.reader/rss" icon="&#xe006;" />
+</launcher_menu>
+
+4、应用内部需要适配定义的uri入口跳转
+Uri data = intent.getData();
+if (data != null && TextUtils.equals("forcetouch", data.getScheme())) {
+	if( TextUtils.equals("/message”, data.getPath())) {
+		Fragment fragment = ReaderMessageFragment.newInstance(R.string.message);
+		ReaderUtils.tryStartFragment(this, fragment);
+		return;
+	}
+	if(TextUtils.equals("/rss",data.getPath()) ){
+		ReaderUtils.tryStartFragment(this, new ReaderRssFragmentShow());
+		return;
+	}
+}
+
+5、测试添加的入口是否能正常启动，adb手动启动指定界面。
+adb shell am start  -d flyme_3d[[|touch://com.meizu.media.reader/message]]
+adb shell am start  -d [[|flyme_3d]][[|touch]][[|://com.meizu.media.reader/rss]]

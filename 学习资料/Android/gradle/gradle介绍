@@ -1,0 +1,202 @@
+
+gradle是项目自动构建化工具，提供依赖管理、编译+测试+打包+发布
+
+
+https://docs.gradle.org/6.5/dsl/
+
+Gradle构建中的两个基本概念是项目Project和任务Task
+每个构建至少包含一个项目，项目中包含一个或多个任务，
+在多项目构建中，一个项目可以依赖于其他项目，
+任务可以形成一个依赖关系来确保他们的执行顺序
+
+一、项目Project
+Gradle会基于build.gradle实例化一个org.gradle.api.Project类，并且通过project变量使其隐式可用（在build.gradle中可以直接使用project变量）
+apply、dependencies、repositories、task
+属性的其他配置方式：ext、gradle.properties
+
+
+二、任务Task
+任务对应org.gradle.Task。主要包括动作和任务依赖。任务动作定义了一个最小的工作单元，可以定义依赖于其他任务、动作序列和执行条件。
+dependsOn 任务依赖
+doFirst
+doLast <<
+
+doFirst doLast可以出现多次：
+task task1 {
+    doFirst {
+        def str = "string"
+        println "doFirst"
+    }
+    doLast {
+        println "doLast "
+    }
+    doFirst(new Action<Task>() {
+        @Override
+        void execute(Task task) {
+            println "doFirst action task=$task"
+        }
+    })
+
+    doLast(new Action<Task>() {
+        @Override
+        void execute(Task task) {
+            println "doLast action task=$task"
+        }
+    })
+}
+
+> Task :task1
+doFirst action task=task ':task1'
+doFirst
+doLast
+doLast action task=task ':task1'
+
+三、构建生命周期
+无论什么时候执行Gradle构建，都会运行3个不同的生命周期阶段：初始化、配置、执行。
+
+//构建过程监听
+gradle.addBuildListener(new BuildListener() {
+    @Override
+    void buildStarted(Gradle gradle) {
+        println("buildStarted")
+    }
+
+    @Override
+    void settingsEvaluated(Settings settings) {
+        println("settingsEvaluated")
+    }
+
+    @Override
+    void projectsLoaded(Gradle gradle) {
+        println("projectsLoaded")
+    }
+
+    @Override
+    void projectsEvaluated(Gradle gradle) {
+        println("projectsEvaluated")
+    }
+
+    @Override
+    void buildFinished(BuildResult result) {
+        println("buildFinished")
+    }
+})
+
+//项目配置监听
+gradle.addProjectEvaluationListener(new ProjectEvaluationListener() {
+    @Override
+    void beforeEvaluate(Project project) {
+        println("beforeEvaluate ${project.name}")
+
+    }
+
+    @Override
+    void afterEvaluate(Project project, ProjectState state) {
+        println("afterEvaluate ${project.name}")
+    }
+})
+
+//task配置完成 生成依赖图
+gradle.taskGraph.whenReady {
+
+}
+
+执行 ./gradlew clean ,流程如下：
+settingsEvaluated   //解析setting.gradle，找出哪些项目依赖需要参与到构建中 为每个项目创建Project实例
+projectsLoaded    //
+
+> Configure project : //开始配置 root project  即项目根目录下的build.gradle
+beforeEvaluate Demo
+root project 配置完成
+afterEvaluate Demo
+> Configure project :app  //开始配置 app
+beforeEvaluate app
+afterEvaluate app
+projectsEvaluated  //所有项目配置完成
+
+>Run clean    //执行task
+
+buildFinished   //构建完毕
+
+
+
+1、初始化（Initialization）
+Gradle为每个项目创建一个Project实例，在多项目构建中，Gradle会找出哪些项目依赖需要参与到构建中。
+项目范围：
+allprojects包括 root project 和subprojects(各module)
+//---------------------项目配置
+allprojects { //所有项目
+    apply plugin: 'java'
+    sourceCompatibility = 1.8
+}
+subprojects { //子项目配置
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        testCompile group: 'junit', name: 'junit', version: '4.12'
+    }
+}
+
+2、配置（Configuration）
+执行所有项目的构建脚本，也就是执行每个项目的build.gradle文件。这里需要注意的是，task里的配置代码也会在这个阶段执行。
+用来生成task的依赖顺序和执行顺序。
+task loadVersion{
+    dependsOn "taskA"  //配置阶段执行  产生依赖关系
+    project.version='1.0' //配置阶段执行 修改project版本
+    doLast{   //执行动作，执行阶段执行
+    }
+}
+3、执行（Execution）
+根据task执行顺序执行动作代码
+task loadVersion{
+    doLast{
+       print "sucess"
+    }
+}
+或
+task loadVersion <<{
+    print "sucess"
+}
+doLast就是一个执行代码
+
+---------------------------
+四、依赖管理
+仓库:
+    repositories {
+        mavenLocal() //本地maven仓库
+        mavenCentral()
+    }
+坐标：
+    group:module:version
+
+按照仓库顺序去查找对应依赖。
+
+---------------------------
+五、依赖冲突
+B依赖A C依赖B 那么C依赖A
+D依赖A
+因为依赖关系，因为B、D都依赖A，如果A的版本不同，所以就可能存在版本冲突
+
+解决冲突：
+1、查看依赖关系
+./gradlew :app:dependencies
+2、排除依赖性传递
+compile("xxx"){
+  exclude group:"",module:""  //指定group、module就可以，不用指定version
+ // transitive=false //排除所有的传递性依赖
+}
+3、强制指定一个版本(一般用最新版本，高版本一般都向下兼容)
+多个版本，gradle默认会实现其中的高版本，我们可以指定一个版本。
+configurations.all {
+    resolutionStrategy {
+        failOnVersionConflict() //修改默认策略  版本冲突则构建失败
+        force 'org.slf4j:slf4j-api:1.7.23'
+    }
+}
+
+六、命令行参数
+1、来自gradle命令行的参数 -P
+比如 ./gradlew clean assemble -Pmyprop=myvalue -Pmyprop2=myvalue2
+def myvalue = getProperty("myprop")
+def myvalue2 = getProperty("myprop2")

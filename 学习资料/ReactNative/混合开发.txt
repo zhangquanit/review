@@ -1,0 +1,248 @@
+
+public class MedlinkerApp extends CommonApplication implements ReactApplication {
+
+   @override
+   public void onCreate(){
+        SoLoader.init(this, false);
+   }
+   @Override
+    public ReactNativeHost getReactNativeHost() {
+        return mReactNativeHost;
+    }
+
+    private final ReactNativeHost mReactNativeHost = new ReactNativeHost(this) {
+        @Override
+        public boolean getUseDeveloperSupport() {
+            return BuildConfig.DEBUG;
+        }
+
+        @Override
+        protected List<ReactPackage> getPackages() {
+
+            List<ReactPackage> packages = new PackageList(this).getPackages();
+            packages.add(RNCodePush.getInstance());
+            packages.add(new CommonReactPackage());
+            packages.add(new FastImageViewPackage());
+            packages.add(new RNSoundPackage());
+            packages.add(new MedRNBasePackage(new MedRNBaseModuleServiceImpl()));
+
+            return packages;
+        }
+
+        @Override
+        protected String getJSMainModuleName() {
+            return "index";
+        }
+
+        @javax.annotation.Nullable
+        @Override
+        protected String getJSBundleFile() { //热更新包
+            try {
+                //加载rn页面时，才会执行
+                return RNCodePush.getJSBundleFile();
+            } catch (Exception e) {
+                return null;
+            }
+        }
+    };
+
+}
+
+---------ReactPackage
+public class MedRNBasePackage implements ReactPackage {
+    private IRNBaseModuleService mService;
+    private static ReactApplicationContext reactApplicationContext;
+
+    public MedRNBasePackage(IRNBaseModuleService service) {
+        mService = service;
+    }
+
+    @Override
+    public List<NativeModule> createNativeModules(ReactApplicationContext reactContext) {
+        reactApplicationContext = reactContext;
+        List<NativeModule> modules = new ArrayList<>();
+        modules.add(new MedBaseModule(reactContext, mService));
+        return modules;
+    }
+
+    @Override
+    public List<ViewManager> createViewManagers(ReactApplicationContext reactContext) {
+        return Arrays.asList();
+    }
+
+    public static ReactApplicationContext getReactApplicationContext() {
+        return reactApplicationContext;
+    }
+}
+
+
+public class MedBaseModule extends ReactContextBaseJavaModule {
+
+    private IRNBaseModuleService mService;
+
+    public MedBaseModule(ReactApplicationContext reactContext, IRNBaseModuleService service) {
+        super(reactContext);
+        mService = service;
+        ActivityEventListener mActivityEventListener = new BaseActivityEventListener() {
+            @Override
+            public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent data) {
+                super.onActivityResult(activity, requestCode, resultCode, data);
+                if (mService != null) {
+                    mService.onRNActivityResult(activity, requestCode, resultCode, data);
+                }
+            }
+        };
+        reactContext.addActivityEventListener(mActivityEventListener);
+    }
+
+    @Override
+    public String getName() {
+        return "MedBaseModule";
+    }
+
+    /**
+     * 打开图片选择器，选择器内部实现拍照
+     */
+    @ReactMethod
+    public void openImagePicker(final ReadableMap param, Promise promise) {
+         //正常回调
+         promise.resolve(Arguments.fromJavaArgs(maps));
+         //错误回调
+         promise.reject(throwable);
+    }
+}
+
+----ReactActivity
+public class MedlinkerReactActivity  extends ReactFragmentActivity {
+  public static void launchReactActivity(Context context, @RnModuleName String rnModuleName,
+                                           String rnPageName, Object extra, String analyticsFrom, int requestCode) {
+        mComponentName = rnModuleName;
+        mPageName = rnPageName;
+        if (extra != null) {
+            sExtraData = extra;
+        }
+        mAnalyticsFrom = analyticsFrom;
+        if (context == null || ((context instanceof Activity) && ((Activity) context).isFinishing())) {
+            return;
+        }
+        if (hasPermission(context, rnPageName)) {
+            Intent intent = new Intent(context, MedlinkerReactActivity.class);
+            if (!(context instanceof Activity)) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            }
+            Bundle optionBundle = new Bundle();
+            optionBundle.putString("moduleName", rnModuleName);
+            optionBundle.putString("routeName", rnPageName);
+            if (extra instanceof Bundle) {
+                optionBundle.putBundle("extra", (Bundle) extra);
+            } else if (extra instanceof String) {
+                optionBundle.putString("extra", (String) extra);
+            }
+            if (!TextUtils.isEmpty(analyticsFrom)) {
+                optionBundle.putString("analyticsFrom", analyticsFrom);
+            }
+            intent.putExtras(optionBundle);
+            if (context instanceof Activity) {
+                ((Activity) context).startActivityForResult(intent, requestCode);
+            } else {
+                context.startActivity(intent);
+            }
+        }
+    }
+    @Override
+    protected void onRestart() {
+        super.onRestart();
+        mIsAppearing = true;
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        WritableMap params = new WritableNativeMap();
+        params.putString("pageId", getPageId());
+        MedRNEventUtil.sendEvent(MedRNEventUtil.EVENT_KEY_PAGE_SHOW, params);
+        if (mIsAppearing) { //如果恢复状态，通知RN界面回到前台，不放在onRestart是避免微信等分享 “留在微信” 回调onRestart
+            WritableMap params = new WritableNativeMap();
+            params.putString("moduleName", mCurModuleName);
+            params.putString("routeName", mCurPageName);
+            ReactNativeEventHelper.setEvent(ReactNativeEventHelper.EVENT_KEY_PAGE_WILL_APPEAR, params);
+            mIsAppearing = false;
+        }
+    }
+
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        WritableMap params = new WritableNativeMap();
+        params.putString("pageId", getPageId());
+        MedRNEventUtil.sendEvent(MedRNEventUtil.EVENT_KEY_PAGE_HIDE, params);
+    }
+
+
+    @Override
+    protected String getMainComponentName() {
+        return mComponentName;
+    }
+
+    @Override
+    protected ReactActivityDelegate createReactActivityDelegate() {
+        String pageName = mPageName;
+        Object extra = sExtraData;
+        MedReactActivityDelegate delegate = new MedReactActivityDelegate(this, getMainComponentName());
+        Bundle optionBundle = new Bundle();
+        optionBundle.putString("moduleName", mComponentName);
+        optionBundle.putString("routeName", pageName);
+        if (extra instanceof Bundle) {
+            optionBundle.putBundle("extra", (Bundle) extra);
+        } else if (extra instanceof String) {
+            optionBundle.putString("extra", (String) extra);
+        }
+        if (!TextUtils.isEmpty(mAnalyticsFrom)) {
+            optionBundle.putString("analyticsFrom", mAnalyticsFrom);
+        }
+        optionBundle.putString("pageId", getPageId());
+        delegate.setLaunchOptions(optionBundle);
+        return delegate;
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        //解决RN页面无法在Fragment中申请权限回调
+        List<Fragment> fragments = getSupportFragmentManager().getFragments();
+        if (null == fragments || fragments.isEmpty()) {
+            return;
+        }
+        for (Fragment fragment : fragments) {
+            if (fragment != null) {
+                fragment.onRequestPermissionsResult(requestCode, permissions, grantResults);
+            }
+        }
+    }
+
+}
+
+-------发送事件通知RN更新
+public class ReactNativeEventHelper {
+    public static void setEvent(String eventName, @Nullable WritableMap params) {
+        WritableMap paramsCloneMap = null;
+        if (params != null) {
+            paramsCloneMap = new WritableNativeMap();
+            paramsCloneMap.merge(params);
+        }
+        final ReactApplicationContext reactContext = CommonReactPackage.getReactApplicationContext();
+        if (reactContext != null && reactContext.hasActiveCatalystInstance()) {
+            reactContext
+                    .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+                    .emit(eventName, params);
+            // clean code后，通知用同一个
+            WritableMap realMap = new WritableNativeMap();
+            realMap.putString("type", eventName);
+            realMap.putMap("data", paramsCloneMap);
+            reactContext
+                    .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+                    .emit("MEDRN_BUSINESS_EVENT", realMap);
+        }
+    }
+}

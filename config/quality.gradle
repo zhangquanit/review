@@ -1,0 +1,163 @@
+apply plugin: 'checkstyle'
+apply plugin: 'findbugs'
+apply plugin: 'pmd'
+
+/**
+ *  当执行“check”任务,Checkstyle, Findbugs, PMD和 Android Lint将会被执行
+ */
+check.dependsOn 'checkstyle', 'findbugs', 'pmd', 'lint'
+
+def configDir = "${project.rootDir}/config/quality"
+def reportsDir = "${project.buildDir}/reports"
+
+/**
+ * 一、CheckStyle
+ * 这个工具用来自动检测java代码,。当启动CheckStyke，它就可以对你的java代码进行检查并且将所有的错误通知给你。
+ * 执行checkstyle任务后，它可以根据checkstyle.xml和suppressions.xml这两个文件定义的规则来检测java代码
+ * 运行checkstyle之后，它就会生成一个报告(build/reports/)，这个报告描述了它在你的项目中所找到的所有问题。
+ * 关于checkstyle的更多配置，可以参看它的说明文档：
+ *    https://docs.gradle.org/current/dsl/org.gradle.api.plugins.quality.Checkstyle.html
+ */
+task checkstyle(type: Checkstyle) {
+    configFile file("$configDir/checkstyle/checkstyle.xml") //这里是自定义的规则
+    configProperties.checkstyleSuppressionsPath = file("$configDir/checkstyle/suppressions.xml").absolutePath
+    //这里是自定义的规则
+    source 'src'
+    include '**/*.java'
+    exclude '**/gen/**'
+    classpath = files()
+}
+
+/**
+ * 二、Findbugs
+ * 1、Findbugs使用静态分析来检测java字节码中发现的错误模式。所以它分析的是程序的字节码，
+ * 它不仅可以检测出一些普遍的错误，例如错误的boolean运算，它也可以检测由于对语言特性误解而产生的错误。
+ *
+ * 2、由于Android项目是从Java项目略有不同，强烈推荐使用findbugs-filter。它基本上忽略了R文件和你的Manifest文件。
+ * 顺便说一句，由于FindBugs分析你的代码字节码，你至少需要编译一次你的代码才能够测试它。
+ */
+task findbugs(type: FindBugs, dependsOn: "assembleDebug") {
+    ignoreFailures = false
+    effort = "max"
+    reportLevel = "high"
+    excludeFilter = new File("$configDir/findbugs/findbugs-filter.xml")//这里是自定义的规则
+    classes = files("${project.rootDir}/code_check/build/intermediates/classes")
+
+    source 'src'
+    include '**/*.java'
+    exclude '**/gen/**'
+
+    //支持html和xml两种报告形式
+    reports {
+        xml.enabled = false
+        html.enabled = true //目前使用的html报告形式
+        xml {
+            destination "$reportsDir/findbugs/findbugs.xml"  //这里是报告产生的路径
+        }
+        html {
+            destination "$reportsDir/findbugs/findbugs.html"  //这里是报告产生的路径
+        }
+    }
+
+    classpath = files()
+}
+
+/**
+ * 三、PMD
+ * PMD是一个很有用的工具，它跟Findbugs类似，但是它不是检测字节码，它是直接检测源代码。它使用静态分析来发现错误。为什么要将它们同时使用呢？因为它们的检测方法不同，可以取到互补的作用。
+ * 1、跟Findbugs基本一样，在pmd-ruleset.xml中可以使用自定义的规则，关于规则的定义可以参考文档
+ *    http://pmd.sourceforge.net/pmd-5.1.1/howtomakearuleset.html。
+ * 2、建议不要使用默认的规则，并且在配置中加入下面这行代码：
+ *    ruleSets = []
+ *   如果不加的话，默认规则会跟自定义的规则都执行，这样可能导致自定义的规则失效，原因就是默认规则里面可能也定义了这个规则。
+ * 3、
+ *
+ */
+task pmd(type: Pmd) {
+    ignoreFailures = false
+    ruleSetFiles = files("$configDir/pmd/pmd-ruleset.xml") //这里是自定义的规则
+    ruleSets = [] //不要使用默认的规则
+
+    source 'src'
+    include '**/*.java'
+    exclude '**/gen/**'
+
+    reports {
+        xml.enabled = false
+        html.enabled = true
+        xml {
+            destination "$reportsDir/pmd/pmd.xml"  //这里是报告产生的路径
+        }
+        html {
+            destination "$reportsDir/pmd/pmd.html"  //这里是报告产生的路径
+        }
+    }
+}
+
+/**
+ * 四、Android Lint
+ * Android Lint是一个静态的代码分析工具，它可以检测Android项目源文件中潜在的bug，也可以在正确性、安全性、性能、可用性、
+ * 可访问性和国际化等方面进行优化。正如官方网站所说，Android Lint是另一种静态分析工具，专门为Android服务。
+ * 它是非常强大的，能给你大量的建议以提高你的代码质量。
+ * 1、关于规则的定义可以参考文档
+ * http://tools.android.com/tips/lint-checks
+ * 除了带有“severity”级别为“ignore”的集合外，Android Lint中总是会检测文件中定义的所有的规则。
+ * 2、lint教程
+ * http://blog.csdn.net/u011240877/article/details/54141714
+ */
+android {
+    lintOptions {
+
+        /** if set to true (default), stops the build if errors are found.*/
+        abortOnError true
+
+        /** if true, only report errors.*/
+//        ignoreWarnings true
+
+        /** if true, turns off analysis progress reporting by lint.*/
+//        quiet true
+
+        /**
+         * Turns off checks for the issue IDs you specify.
+         * These checks are in addition to the default lint checks
+         */
+//        disable 'TypographyFractions','TypographyQuotes'
+
+        /** Turns on checks for the issue IDs you specify.*/
+//        enable 'RtlHardcoded','RtlCompat', 'RtlEnabled'
+
+        /**
+         * 只检测列出的issue ids，忽略其他所有的。
+         * This property overrides any issue IDs you enable or disable using the properties above.
+         */
+//        check 'NewApi', 'InlinedApi'
+
+        xmlReport false
+        htmlReport true  //使用html汇报
+        lintConfig file("$configDir/lint/lint.xml") //配置规则
+        htmlOutput file("$reportsDir/lint/lint-result.html") //html汇报文件
+        xmlOutput file("$reportsDir/lint/lint-result.xml") //xml汇报文件
+    }
+}
+
+task detectInfer(type: Exec) {
+    commandLine 'command'
+    args = ['-v', 'infer']
+
+    // Hide output if infer is present
+    standardOutput new ByteArrayOutputStream()
+
+    // Inform user if infer not present
+    ignoreExitValue true
+    doLast {
+        if (execResult.getExitValue() != 0) {
+            throw new GradleException("Infer seems not installed. Please refer to http://fbinfer.com/docs/getting-started.html")
+        }
+    }
+}
+
+task infer(type: Exec, dependsOn: [clean, detectInfer]) {
+    workingDir "${project.rootDir}"
+    commandLine 'infer'
+    args = ['--', './gradlew', 'build']
+}

@@ -1,0 +1,69 @@
+
+一、常用目录
+    //  /data 下的私有目录
+    File dataDir = getDataDir(); //   /data/user/0/com.fastapp
+    File filesDir = getFilesDir(); // /data/user/0/com.fastapp/files
+    File cacheDir = getCacheDir();//  /data/user/0/com.fastapp/cache
+
+    //SD卡目录
+    File externalStorageDirectory = Environment.getExternalStorageDirectory();//SD卡根目录 (公有)  /storage/emulated/0
+    File externalCacheDir = getExternalCacheDir(); //SD卡app私有目录     /storage/emulated/0/Android/data/com.fastapp/cache
+    File externalFilesDir = getExternalFilesDir(null); //SD卡app私有目录 /storage/emulated/0/Android/data/com.fastapp/files
+    File imageFilesDir = getExternalFilesDir("image"); //SD卡app私有目录 /storage/emulated/0/Android/data/com.fastapp/files/image
+
+
+    System.out.println("dataDir=" + dataDir);
+    System.out.println("filesDir=" + filesDir);
+    System.out.println("cacheDir=" + cacheDir);
+
+
+    System.out.println("externalStorageDirectory=" + externalStorageDirectory);
+    System.out.println("externalCacheDir=" + externalCacheDir);
+    System.out.println("externalFilesDir=" + externalFilesDir);
+    System.out.println("externalFilesDir(\"image\")=" + imageFilesDir);
+
+
+
+二、Android 7.0 FileProvider使用
+xml配置
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <paths>
+    <!-- Context.getFilesDir() + "/xx/" -->
+    <files-path
+        name="my_files"
+        path="xx/"/>
+    <!-- Context.getCacheDir() + "/xx/" -->
+    <cache-path
+        name="my_cache"
+        path="xx/"/>
+    <!-- Context.getExternalFilesDir(null) + "/xx/" -->
+    <external-files-path
+        name="external-files-path"
+        path="xx/"/>
+    <!-- Context.getExternalCacheDir() + "/xx/" -->
+    <external-cache-path
+         name="name"
+         path="xx/" />
+    <!-- Environment.getExternalStorageDirectory() + "/xx/" -->
+    <external-path
+        name="my_external_path"
+        path="xx/"/>
+    <!-- path设置为'.'时代表整个存储卡 Environment.getExternalStorageDirectory()   -->
+    <external-path
+        name="external_storage_root"
+        path="."/>
+  </paths>
+</resources>
+
+注意：.代表对应标签根目录
+比如 getExternalFilesDir(null) 根目录
+   <external-files-path
+        name="external-files-path"
+        path="."/>
+
+比如 SD卡根目录
+    <external-path
+        name="external_storage_root"
+        path="."/>
+

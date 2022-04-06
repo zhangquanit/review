@@ -1,0 +1,123 @@
+
+同步与异步？
+同步/异步, 它们是消息的通知机制。
+所谓同步，就是在发出一个功能调用时，在没有得到结果之前，该调用就不返回，也就是返回时一定是有结果的。
+异步是发送请求后就返回了，返回时还没有结果，等有结果了通知调用者
+
+阻塞和非阻塞？
+阻塞/非阻塞, 它们是程序在等待消息(无所谓同步或者异步)时的状态.
+阻塞调用是指调用结果返回之前，当前线程会被挂起。函数只有在得到结果之后才会返回。
+非阻塞指在不能立刻得到结果之前，该函数不会阻塞当前线程，而会立刻返回。
+
+进程和线程的区别(猎豹)
+进程是程序运行和资源分配的基本单位,一个程序至少有一个进程,一个进程至少有一个线程.
+进程在执行过程中拥有独立的内存单元,而多个线程共享内存资源,减少切换次数,从而效率更高.
+
+线程是进程的一个实体,是cpu调度和分派的基本单位,是比程序更小的能独立运行的基本单位.同一进程中的多个线程之间可以并发执行.
+
+守护线程与非守护线程？
+在Java中有两类线程：User Thread(用户线程)、Daemon Thread(守护线程)
+任何一个守护线程都是整个JVM中所有非守护线程的保姆
+只要当前JVM实例中尚存在任何一个非守护线程没有结束，守护线程就全部工作；只有当最后一个非守护线程结束时，守护线程随着JVM一同结束工作。
+守护线程最典型的应用就是 GC (垃圾回收器)
+将一个线程设置为守护线程：
+Thread daemonTread = new Thread();
+ daemonThread.setDaemon(true);   // 必须在start之前设置
+1）thread.setDaemon(true)必须在thread.start()之前设置
+2）在Daemon线程中产生的新线程也是Daemon的。
+
+什么是多线程上下文切换？
+多线程的上下文切换是指CPU控制权由一个正在运行的线程切换到另外一个就绪并等待获取CPU执行权的线程的过程。
+
+Runnable和Callable的区别？
+Runnable接口中的run()方法的返回值是void，它做的事情只是纯粹地去执行run()方法中的代码而已；
+Callable接口中的call()方法是有返回值的，是一个泛型，和Future、FutureTask配合可以用来获取异步执行的结果。
+
+
+wait()方法和notify()/notifyAll()方法在放弃对象监视器时有什么区别？
+wait()方法立即释放对象监视器，notify()/notifyAll()方法则会等待线程剩余的同步代码执行完毕才会放弃对象监视器。
+final Object lock =new Object();
+    public void funA(){
+        synchronized (lock){
+            System.out.println("FunA");
+            try {
+                lock.wait(); //等待
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            System.out.println("FunA  end");
+        }
+
+    }
+    public void funB(){
+        synchronized (lock){
+            System.out.println("FunB");
+            try {
+                Thread.sleep(2*1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            System.out.println("FunB    notify");
+            lock.notify(); //虽然调用了notify，但必须把同步方法块执行完毕后才能释放同步所
+
+              try {
+                    Thread.sleep(2*1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                System.out.println("FunB    end");
+        }
+    }
+ 打印如下：
+FunA
+FunB
+FunB    notify
+FunB    end    //必须把notify后的同步剩余代码执行完毕后才释放同步锁
+FunA  end
+
+wait()与sleep()的区别？
+sleep()来自Thread类，wait()来自Object类.调用sleep()方法的过程中，线程不会释放对象锁。而调用 wait 方法线程会释放对象锁
+sleep()睡眠后不出让系统资源，wait让其他线程可以占用CPU
+sleep(milliseconds)需要指定一个睡眠时间，时间一到会自动唤醒.而wait()需要配合notify()或者notifyAll()使用
+
+synchronized和ReentrantLock的区别？
+synchronized是关键字，ReentrantLock是类，这是二者的本质区别。既然ReentrantLock是类，那么它就提供了比synchronized更多更灵活的特性，可以被继承、可以有方法、可以有各种各样的类变量，ReentrantLock比synchronized的扩展性体现在几点上：
+（1）ReentrantLock可以对获取锁的等待时间进行设置，这样就避免了死锁
+（2）synchronized会自动释放同步锁，ReentrantLock必须调用unlock释放
+（3）ReentrantLock是类，可以灵活调用lock和unlock，实现多路通知。
+另外，二者的锁机制其实也是不一样的:ReentrantLock底层调用的是Unsafe的park方法加锁，synchronized操作的应该是对象头中mark word.
+
+如何在两个线程间共享数据？
+通过在线程之间共享对象就可以了，然后通过wait/notify/notifyAll、await/signal/signalAll进行唤起和等待，比方说阻塞队列BlockingQueue就是为线程之间共享数据而设计的
+
+生产消费者模式？
+生产者<---->缓冲容器<----->消费者
+生产消费者模式是通过一个容器来解决生产者和消费者的强耦合问题。
+生产者和消费者彼此之间不直接通讯，而通过阻塞队列来进行通讯，
+所以生产者生产完数据之后不用等待消费者处理，直接扔给阻塞队列，
+消费者不找生产者要数据，而是直接从阻塞队列里取，阻塞队列就相当于一个缓冲区，平衡了生产者和消费者的处理能力。
+
+你有哪些多线程开发良好的实践?
+给线程命名
+最小化同步范围
+优先使用volatile
+尽可能使用更高层次的并发工具而非wait和notify()来实现线程通信,如BlockingQueue,Semeaphore
+优先使用并发容器而非同步容器.
+考虑使用线程池
+
+
+为了解决对共享存储区的访问冲突，Java 引入了同步机制。
+阻塞指的是暂停一个线程的执行以等待某个条件发生（如某资源就绪），Java 提供了大量方法来支持阻塞
+1）sleep(sleeptime) 释放资源，不释放锁
+它使得线程在指定的时间内进入阻塞状态，指定的时间一过，线程重新进入可执行状态。
+典型地，sleep() 被用在等待某个资源就绪的情形：测试发现条件不满足后，让线程阻塞一段时间后重新测试，直到条件满足为止。
+2）suspend() 和 resume()   （方法已过时）
+两个方法配套使用，suspend()使得线程进入阻塞状态，并且不会自动恢复，必须其对应的resume() 被调用，
+才能使得线程重新进入可执行状态。典型地，suspend() 和 resume() 被用在等待另一个线程产生的结果的情形：
+测试发现结果还没有产生后，让线程阻塞，另一个线程产生了结果后，调用 resume() 使其恢复。
+3)yield()
+yield() 使得线程放弃当前分得的 CPU 时间，但是不使线程阻塞，即线程仍处于可执行状态，随时可能再次分得 CPU 时间。
+调用 yield() 的效果等价于调度程序认为该线程已执行了足够的时间从而转到另一个线程.
+4)wait() 和 notify()
+wait(long millis)
+将当前调用线程挂起，直到另一个线程调用该对象的notify或notifyAll，或者等待指定时间后继续执行。

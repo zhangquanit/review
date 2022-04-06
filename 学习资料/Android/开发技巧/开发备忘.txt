@@ -1,0 +1,42 @@
+一、setColorFilter 修改图标颜色
+用途：1、无源码，修改依赖库中的图标颜色 2、减少切图 缩小apk体积
+案例：MLLoadingView 修改帧图片的颜色()
+
+二、替换依赖库中的资源
+同一组件在不同app中需要替换颜色、图标。比如播放组件需要修改在糖尿病中的进度条颜色以及拖动图标。
+常规解决方案：
+1、组件库暴露方法来替换  --缺点：有时候不太方便暴露，或者暴露出去有点莫名其妙
+2、组件中创建新的分支，替换资源，重新打包。 ---缺点：分支太多，源码管理混乱，来一个新的app，就需要重新创建分支打包
+
+最佳解决方案：
+利用android中module间资源文件的覆盖规律，覆盖组件库中资源文件。
+-----主项目会覆盖它依赖的module中的资源文件。因此将需要替换的组件库中的资源文件 拷贝到主Module对应目录下进行修改。
+
+三、主项目BuildConfig.DEBUG一直为true，排查如下：
+    buildTypes {
+        debug {
+            ndk {
+                abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86'
+
+            debuggable true
+        }
+        release {
+            debuggable true //  之前为了联调测试release环境，忘了关闭debuggable=false
+        }
+    }
+
+四、SDK初始化
+如果没有依赖顺序，只依赖于Context，可以通过ContentProvider完成初始化，因为配置在manifest.xml中的ContentProvider会被自动加载。
+注意：ContentProvider.onCreate()优先于Application.onCreate()执行。但是ContentProvider初始化开销较大，不推荐大量使用。
+参考：https://developer.android.google.cn/topic/libraries/app-startup
+
+查看各任务依赖关系
+./gradlew 任务名字 --dry-run（或 -m）
+比如：
+./gradlew assemble -m
+./gradlew build -m
+总结：build = assemble + lint + test相关
+     assemble = assembleDebug + assembleRelease
+(assemble会打包apk)
+AndroidStudio的Build..>RebuildProject 其实就是：clean+assembleDebug
+Executing tasks: [clean, :app:assembleDebug, :ModuleA:assembleDebug, :LibB:assembleDebug, :LibA:assembleDebug]

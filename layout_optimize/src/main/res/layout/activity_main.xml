@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="20dp"
+    tools:context=".MainActivity">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="----------------merge------------" />
+
+    <include layout="@layout/merge_layout" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:background="#03A9F4"
+        android:orientation="vertical">
+
+        <include layout="@layout/merge_layout" />
+    </FrameLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="----------------include------------" />
+
+    <!-- 可覆盖width、height、id、margin等属性-->
+    <include
+        android:id="@+id/new_include_id"
+        layout="@layout/include_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:background="#03A9F4"
+        android:orientation="vertical">
+
+        <include layout="@layout/include_layout" />
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="----------------viewstub------------" />
+
+    <Button
+        android:id="@+id/btn_viewstub"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="加载ViewStub" />
+
+    <com.review.layout_optimize.view.CustomView
+        android:id="@+id/customView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="测试View.GONE"
+        android:visibility="gone" />
+
+    <ViewStub
+        android:id="@+id/viewstub"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout="@layout/include_layout" />
+
+    <Button
+        android:id="@+id/btn_frameactivity"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:text="FrameLayout Activity"
+        android:textAllCaps="false" />
+    <Button
+        android:id="@+id/btn_fragactivity"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:text="FrameFrag Activity"
+        android:textAllCaps="false" />
+
+</LinearLayout>

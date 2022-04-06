@@ -1,0 +1,260 @@
+
+--------------------------------HashMap
+public abstract class AbstractMap<K, V> implements Map<K, V>
+public class HashMap<K, V> extends AbstractMap<K, V> implements Map<K, V>, Cloneable, Serializable
+--------------------------------LinkedHashMap
+有序的HashMap，，保存了记录的插入顺序
+当HashMap容量很大，实际数据较少时，遍历起来可能会比 LinkedHashMap慢，
+因为LinkedHashMap的遍历速度只和实际数据有关，和容量无关，而HashMap的遍历速度和他的容量有关。
+public class LinkedHashMap<K, V> extends HashMap<K, V>{
+ LinkedEntry<K, V> header; //第一个元素=header.nxt 最后一个元素header.prv，如何Map是空的， header.nxt == header && header.prv == header
+public LinkedHashMap(
+        int initialCapacity,
+        float loadFactor,
+        boolean accessOrder) {
+    super(initialCapacity, loadFactor);
+    header = new LinkedEntry<K, V>(); //初始化一个header=header.nxt=header.prv
+    this.accessOrder = accessOrder;
+}
+ static class LinkedEntry<K, V> extends HashMapEntry<K, V> {
+        LinkedEntry<K, V> nxt; //下一个
+        LinkedEntry<K, V> prv; //上一个
+
+         LinkedEntry() {
+            super(null, null, 0, null);
+            nxt = prv = this;
+           }
+        LinkedEntry(K key, V value, int hash, HashMapEntry<K, V> next,
+                    LinkedEntry<K, V> nxt, LinkedEntry<K, V> prv) {
+            super(key, value, hash, next);
+            this.nxt = nxt;
+            this.prv = prv;
+        }
+    }
+
+      @Override
+   public V put(K key, V value) {
+         //.......................
+        addNewEntry(key, value, hash, index);
+        return null;
+    }
+
+      @Override
+  void addNewEntry(K key, V value, int hash, int index) {
+    LinkedEntry<K, V> header = this.header;
+
+    // Remove eldest entry if instructed to do so.
+    LinkedEntry<K, V> eldest = header.nxt; // 第一次 header.nxt=header
+    if (eldest != header && removeEldestEntry(eldest)) {
+        remove(eldest.key); //移除
+    }
+
+    // Create new entry, link it on to list, and put it into table
+    LinkedEntry<K, V> oldTail = header.prv; //第一次 header.prv=header
+    LinkedEntry<K, V> newTail = new LinkedEntry<K,V>( //当前newTail.nxt=header;  newTail.prv=oldTail
+            key, value, hash, table[index], header, oldTail);
+    table[index] = oldTail.nxt = header.prv = newTail; //table[index=]=header;
+
+    //第一个元素结果
+    table[index]=newTail;
+    newTail.nxt=header  newTail.prv=header;
+    header.nxt=newTail; header.prv=newTail;
+    //第二个元素
+    eldest=header.nxt=newTailA
+    oldTail=header.prv=newTailA
+    newTailB = new LinkedEntry<K,V>( //当前newTail.nxt=header;  newTail.prv=newTailA
+                key, value, hash, table[index], header, oldTail);
+    table[index]=newTailB;
+    newTailA.nxt=newTailB;
+    newTailA.prv=newTailB;
+}
+}
+
+
+--------------------------------TreeMap
+TreeMap实现SortMap接口，能够把它保存的记录根据键排序,默认是按键值的升序排序，也可以指定排序的比较器
+关于排序：
+1、自然排序
+Key必须实现Comparable接口
+2、自定义Comparator接口
+
+public class TreeMap<K, V> extends AbstractMap<K, V> implements SortedMap<K, V>, NavigableMap<K, V>, Cloneable, Serializable{
+ //自然排序
+private static final Comparator<Comparable> NATURAL_ORDER = new Comparator<Comparable>() {
+        public int compare(Comparable a, Comparable b) {
+            return a.compareTo(b);
+        }
+    };
+Comparator<? super K> comparator; //排序器
+Node<K, V> root; //第一个元素
+int size = 0;  //容器大小
+int modCount = 0;
+public TreeMap() {
+    this.comparator = (Comparator<? super K>) NATURAL_ORDER;
+}
+public TreeMap(Comparator<? super K> comparator) { //自定义排序器
+        if (comparator != null) {
+            this.comparator = comparator;
+        } else {
+            this.comparator = (Comparator<? super K>) NATURAL_ORDER;
+        }
+    }
+}
+
+@Override
+public V put(K key, V value) {
+    return putInternal(key, value);
+}
+
+V putInternal(K key, V value) {
+    Node<K, V> created = find(key, Relation.CREATE);
+    V result = created.value; //key的上一个value值
+    created.value = value; //设置为当前value值
+    return result;
+}
+ Node<K, V> find(K key, Relation relation) {
+         //创建第一个元素
+        if (root == null) {
+            //如果采用自然排序， key必须实现Comparable接口 ，否则会抛出异常
+            if (comparator == NATURAL_ORDER && !(key instanceof Comparable)) {
+                throw new ClassCastException(key.getClass().getName() + " is not Comparable"); // NullPointerException ok
+            }
+            if (relation == Relation.CREATE) {
+                root = new Node<K, V>(null, key); //创建第一个元素
+                size = 1;
+                modCount++;
+                return root;
+            } else {
+                return null;
+            }
+        }
+
+        //自然排序，Key需要实现Comparable接口
+        Comparable<Object> comparableKey = (comparator == NATURAL_ORDER)
+                ? (Comparable<Object>) key
+                : null;
+
+        Node<K, V> nearest = root;
+        while (true) {
+            //排序
+            int comparison = (comparableKey != null)
+                    ? comparableKey.compareTo(nearest.key)
+                    : comparator.compare(key, nearest.key);
+
+            /*
+             * key的排序相同
+             */
+            if (comparison == 0) {
+                switch (relation) {
+                    case LOWER:
+                        return nearest.prev();
+                    case FLOOR:
+                    case EQUAL:
+                    case CREATE:
+                    case CEILING:
+                        return nearest; //返回
+                    case HIGHER:
+                        return nearest.next();
+                }
+            }
+
+            Node<K, V> child = (comparison < 0) ? nearest.left : nearest.right;
+            if (child != null) {
+                nearest = child;
+                continue;
+            }
+
+            /*
+             * We found a nearest node. Every key not in the tree has up to two
+             * nearest nodes, one lower and one higher.
+             */
+
+            if (comparison < 0) { // nearest.key is higher
+                switch (relation) {
+                    case LOWER:
+                    case FLOOR:
+                        return nearest.prev();
+                    case CEILING:
+                    case HIGHER:
+                        return nearest;
+                    case EQUAL:
+                        return null;
+                    case CREATE:
+                        Node<K, V> created = new Node<K, V>(nearest, key);
+                        nearest.left = created;
+                        size++;
+                        modCount++;
+                        rebalance(nearest, true);
+                        return created;
+                }
+            } else { // comparison > 0, nearest.key is lower
+                switch (relation) {
+                    case LOWER:
+                    case FLOOR:
+                        return nearest;
+                    case CEILING:
+                    case HIGHER:
+                        return nearest.next();
+                    case EQUAL:
+                        return null;
+                    case CREATE:
+                        Node<K, V> created = new Node<K, V>(nearest, key);
+                        nearest.right = created;
+                        size++;
+                        modCount++;
+                        rebalance(nearest, true);
+                        return created;
+                }
+            }
+        }
+    }
+static class Node<K, V> implements Map.Entry<K, V> {
+        Node<K, V> parent;
+        Node<K, V> left;
+        Node<K, V> right;
+        final K key;
+        V value;
+        int height;
+
+        Node(Node<K, V> parent, K key) {
+            this.parent = parent;
+            this.key = key;
+            this.height = 1;
+        }
+ }
+--------------------------------HashSet
+public abstract class AbstractCollection<E> implements Collection<E>
+public abstract class AbstractSet<E> extends AbstractCollection<E> implements Set<E>
+public class HashSet<E> extends AbstractSet<E> implements Set<E>, Cloneable, Serializable
+--------------------------------LinkedHashSet
+public class LinkedHashSet<E> extends HashSet<E> implements Set<E>, Cloneable, Serializable
+使用链表维护元素的次序。也就是说，当遍历该集合时候，LinkedHashSet将会以元素的添加顺序访问集合的元素。
+--------------------------------TreeSet
+基于 TreeMap 的 NavigableSet 实现。使用元素的自然顺序对元素进行排序，或者根据创建 set 时提供的 Comparator 进行排序
+，具体取决于使用的构造方法。
+1)自然排序
+实现Comparable接口
+自然排序使用要排序元素的CompareTo（Object obj）方法来比较元素之间大小关系，然后将元素按照升序排列。
+自然排序是根据集合元素的大小，以升序排列
+2）使用Comparator接口排序
+
+public class TreeSet<E> extends AbstractSet<E> implements NavigableSet<E>, Cloneable, Serializable{
+
+private transient NavigableMap<E, Object> backingMap; //  NavigableMap<K,V> extends SortedMap<K,V>
+public TreeSet(Comparator<? super E> comparator) { //传入自定义的Comparator  否则按照元素的自然顺序排序
+    backingMap = new TreeMap<E, Object>(comparator); //内部使用TreeMap实现
+}
+@Override
+public boolean add(E object) {
+    return backingMap.put(object, Boolean.TRUE) == null;
+}
+@Override
+public boolean remove(Object object) {
+    return backingMap.remove(object) != null;
+}
+
+}
+
+--------------------------------HashTable
+public abstract class Dictionary<K, V>
+public class Hashtable<K, V> extends Dictionary<K, V>implements Map<K, V>, Cloneable, Serializable

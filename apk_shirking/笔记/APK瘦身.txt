@@ -1,0 +1,114 @@
+
+首先使用androidstudio的analyze apk功能查看apk各部分组成大小，然后针对每个部分进行瘦身优化。
+在菜单栏中选择选择Build > Analyze APK
+APK Size就是我们应用打包之后的大小
+
+1、lib目录优化，主要是针对so库
+一般保留armeabi-v7a即可
+android {
+    buildTypes {
+        ndk {
+            abiFilters "armeabi-v7a"
+        }
+    }
+}
+
+armeabi-v7a: 第7代及以上的 ARM 处理器。2011年15月以后的生产的大部分Android设备都使用它.
+arm64-v8a: 第8代、64位ARM处理器，很少设备，三星 Galaxy S6是其中之一。
+armeabi: 第5代、第6代的ARM处理器，早期的手机用的比较多。
+x86: 平板、模拟器用得比较多。
+x86_64: 64位的平板。
+
+2、res目录优化
+res目录一般也是占APK Size大头的一个目录。
+1）、保留一套图
+这个目录一般都是图片资源占空间比较多，尤其当App为了适配多种分辨率而存放了多套图时，这时候就会导致res目录打下会非常大。
+国内应用一般保留xxhdpi即可，即3x图片  1920*1080      xxhdpi
+Android设备在加载图片时会优先加载对应分辨率文件夹下的图片，如果没有，则则找高分辨率对应文件夹下的图片。
+
+2）手动lint检查，手动删除无用资源  --（开启了第5条，就可以不用lint检查了）
+在Android Studio中打开“Analyze” 然后选择"Inspect Code…"，范围选择整个项目，然后点击"OK"
+Analyze--Run Inspection by name--输入unused resource 查找冗余资源
+注意：lint检查出来的资源都是无直接引用的，所以如果我们通过getIdentifier()方法引用文件时，lint也会标记为无引用，所以删除时注意不要删除通过getIdentifier()引用的资源。
+
+3）使用tinypng等图片压缩工具对图片进行压缩。
+4）大部分图片或动图 使用Webp格式代替
+5）使用gradle开启shrinkResources
+shrinkResources是在编译过程中用来检测并删除无用资源文件，也就是没有引用的资源，minifyEnabled 这个是用来开启删除无用代码，比如没有引用到的代码，
+所以如果需要知道资源是否被引用就要配合minifyEnabled使用，只有两者都为true时才会起到真正的删除无效代码和无引用资源的目的。
+ buildTypes {
+        release {
+            //开启代码缩减、混淆、优化  Enables code shrinking, obfuscation, and optimization
+            minifyEnabled true
+            //开启资源缩减(layout、drawbable) 保留文件，内容会被清空  比如abc.png内容清空了 只有67B。无引用的string和color不会清除
+            //getIdentifier方法获取的资源会被保留
+            shrinkResources true
+
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+    }
+
+6）删除无用的语言
+我们引用一些第三方库时（如Google、Facebook的库），它们往往带有上百种多语言资源。
+国内大部分应用都不需要支持多语言，所以我们可以在build.gralde里面进行如下配置即可完成无用语言资源的删除，
+这样在打包的时候就会排除私有项目、android系统库和第三方库中非中文的资源文件了，效果还是比较显著的。
+android {
+    //...
+    defaultConfig {
+        // 只保留中文
+        resConfigs "zh"
+    }
+}
+
+
+3、assets目录优化
+assests目录存放的通常是一些通过AssetManager能够检索到的资源。比如字体，本地静态资源。
+这个需要根据使用情况去衡量，比如是否可以改为网络下载，资源压缩成zip等。
+
+4、META-INF目录
+该目录下的MANIFEST.MF、CERT.SF、INDEX.LIST、CERT.RSA等文件主要是存放一些APK文件加密后的信息，用以校验APK的完整性和安全性，这个目录没有太好的优化方式，而且文件一般也比较小，不会超过1M。
+
+5、resources.arsc文件压缩
+这个文件包含所有可以被编译的位于res/values/目录下的XML资源。像图片的引用名字、layout文件的引用名字、string资源等都被编译到了这个文件里面。
+所以如果我们需要对resources.arsc文件进行优化，无非就是对路径名字进行混淆，删除无用的资源映射，前者可以使用AndResGuard，后者可以使用lint等进行检测。
+
+AndResGuard，他的原理类似Java Proguard，但是只针对资源。
+他会将原本冗长的资源路径变短，例如将res/drawable/wechat变为r/d/a。
+很简单有效地减小resources.arsc文件大小。
+andResGuard {
+    mappingFile = null
+    use7zip = true
+    useSign = true
+    keepRoot = false
+    whiteList = [
+        //for your icon
+        "R.drawable.icon",
+        //for fabric
+        "R.string.com.crashlytics.*",
+        //for umeng update
+        "R.string.umeng*",
+        "R.string.UM*",
+        "R.layout.umeng*",
+        "R.drawable.umeng*",
+        //umeng share for sina
+        "R.drawable.sina*"
+    ]
+    compressFilePattern = [
+        "*.png",
+        "*.jpg",
+        "*.jpeg",
+        "*.gif",
+        "resources.arsc"
+    ]
+     sevenzip {
+         artifact = 'com.tencent.mm:SevenZip:1.1.9'
+         //path = "/usr/local/bin/7za"
+    }
+}
+
+5）衡量第三方库的引用
+如果只是想使用里面的特定少部分功能，却要引入一个很大的库，就可以考虑替换成其他轻量级的。
+
+
+App瘦身是一个长期的过程，需要持续关注和改进。

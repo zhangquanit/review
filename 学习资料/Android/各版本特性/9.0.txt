@@ -1,0 +1,83 @@
+
+---------------------所有应用
+1、现在强制执行 FLAG_ACTIVITY_NEW_TASK
+从Android 9 开始，只有当Intent flag中指定了FLAG_ACTIVITY_NEW_TASK，才允许在非Activity场景启动Activity。
+如果不在Intent添加FLAG_ACTIVITY_NEW_TASK，将无法通过非Activity的Context启动一个Activity，并且会抛异常。
+
+2、前台服务需要添加权限
+必须要授予FOREGROUND_SERVICE权限，才能够使用前台服务，否则会抛出SecurityException异常
+   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
+3、限制静态广播的接收
+升级安卓P之后，隐式广播将会被全面禁止，在AndroidManifest中注册的Receiver将不能够生效
+只能通过代码进行动态注册。
+
+4、非 SDK 接口访问限制
+在 Android P 版本中，谷歌加入了非 SDK 接口使用限制，无论是通过调用、反射还是JNI等方式，开发者都无法对非 SDK 接口进行访问，此接口的滥用将会带来严重的系统兼容性问题。
+所谓非SDK接口就是所有不能够在谷歌官网上查询到的接口，谷歌提供了查询接口的网站
+https://developer.android.google.cn/reference/packages
+非SDK接口的类型，分为三类
+（1）Light grey list: targetSDK>=P时，警告；
+（2）Dark grey list: targetSDK<P时，警告；>=p时，不允许调用；
+（3）Black list:三方应用不允许调用。
+例如我们通过反射修改Dialog窗体的颜色：
+ try {
+            //通过反射的方式来更改dialog中文字大小、颜色
+            Field mAlert = AlertDialog.class.getDeclaredField("mAlert");
+            mAlert.setAccessible(true);
+            Object mAlertController = mAlert.get(normalDialog);
+
+            Field mMessage = mAlertController.getClass().getDeclaredField("mMessageView");
+            mMessage.setAccessible(true);
+            TextView mMessageView = (TextView) mMessage.get(mAlertController);
+            mMessageView.setTextSize(23);
+            mMessageView.setTextColor(Color.RED);
+            Field mTitle = mAlertController.getClass().getDeclaredField("mTitleView");
+            mTitle.setAccessible(true);
+            TextView mTitleView = (TextView) mTitle.get(mAlertController);
+            mTitleView.setTextSize(20);
+            mTitleView.setTextColor(Color.RED);
+        }catch (Exception e){
+            Toast.makeText(NotSDKInterfaceActivity.this,e.getLocalizedMessage(),Toast.LENGTH_LONG).show();
+        }
+此方法在安卓P版本将不能够正常运行，会抛出NoSuchFieldException，对于诸如此类的调用官方private方法或者@hide方法，都将不能使用。
+
+5、默认启用网络传输层安全协议 (TLS)
+Android P 限制了明文流量的网络请求，非加密的流量请求都会被系统禁止掉。
+在manifest.xml中的<app android:networkSecurityConfig="@xml/network_security_config"> 允许使用http
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
+
+6、刘海屏适配
+Android P 提供了统一的挖孔屏方案和三方适配挖孔屏方案：
+对于有状态栏的页面，不会受到挖孔屏特性的影响；
+全屏显示的页面，系统挖孔屏方案会对应用界面做下移避开挖孔区显示；
+可以通过谷歌提供的适配方案使用挖孔区，真正做到全屏显示。
+新增挖孔屏挖孔尺寸和位置接口：
+
+class WindowInsets {
+  DisplayCutout getDisplayCutout();
+}
+class DisplayCutout {
+  int getSafeInsetLeft();
+  int getSafeInsetTop();
+  int getSafeInsetRight();
+  int getSafeInsetBottom();
+  Region getBounds();
+}
+新窗口布局模式，允许应用程序请求是否在挖孔区域布局：
+
+class WindowManager.LayoutParams {
+  int layoutInDisplayCutoutMode; //当前显示模式
+  final int LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT; //默认情况下，全屏窗口不会使用到挖孔区域，非全屏窗口可正常使用挖孔区域。
+  final int LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS; //窗口声明使用挖孔区域
+  final int LAYOUT_IN_DISPLAY_CUTOUT_MODE_NEVER;//窗口声明不使用挖孔区域
+
+
+

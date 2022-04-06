@@ -1,0 +1,46 @@
+
+----------------------LoadedApk
+APK加载信息
+public final class LoadedApk {
+    LoadedApk(ActivityThread activityThread) {
+        mActivityThread = activityThread;
+        mApplicationInfo = new ApplicationInfo();
+        mApplicationInfo.packageName = "android";
+        mClassLoader = ClassLoader.getSystemClassLoader();
+        mResources = Resources.getSystem();
+        mAppComponentFactory = createAppFactory(mApplicationInfo, mClassLoader);
+    }
+    public Application makeApplication(boolean forceDefaultAppClass,
+            Instrumentation instrumentation) {
+        if (mApplication != null) {
+            return mApplication;
+        }
+        Application app = null;
+        String appClass = mApplicationInfo.className;
+        if (forceDefaultAppClass || (appClass == null)) {
+            appClass = "android.app.Application";
+        }
+
+        try {
+            java.lang.ClassLoader cl = getClassLoader();
+            if (!mPackageName.equals("android")) {
+                initializeJavaContextClassLoader(); // Thread.currentThread().setContextClassLoader(contextClassLoader);
+            }
+            ContextImpl appContext = ContextImpl.createAppContext(mActivityThread, this);
+            app = mActivityThread.mInstrumentation.newApplication(
+                    cl, appClass, appContext);
+            //其实就是通过classLoader反射创建Application
+            //Application app =  (Application) cl.loadClass(className).newInstance();
+            //app.attach(context); //  ->Applicaion.attachBaseContext(appContext);
+
+            appContext.setOuterContext(app);
+        } catch (Exception e) {
+        }
+        mActivityThread.mAllApplications.add(app);
+        mApplication = app;
+
+
+        return app;
+    }
+
+}

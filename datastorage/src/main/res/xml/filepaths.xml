@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding= "utf-8"?>
+<resources>
+<paths>
+    <!-- name不能相同，name相当于key，是唯一的-->
+    <files-path name="internalFile" path="files/" />
+    <external-path name="sdFile" path="apks/" />
+</paths>
+</resources>

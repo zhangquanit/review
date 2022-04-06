@@ -1,0 +1,113 @@
+
+https://blog.csdn.net/javazejian/article/details/52709857
+
+一、startService/stopService
+特点：
+1、运行在主线程中,所以耗时操作应该放在子线程中。
+2、生命周期
+startService开启服务
+第一次开启：onCreate onStartCommand onStart(方法过时，不建议使用)
+重复打开：onStartCommand onStart
+stopService关闭服务
+onDestroy
+3、支持跨进程调用
+Activity可以调用其它应用中的Service，或者其他进程中的Service
+4、android 5.0后禁止使用隐式意图打开service
+    <service android:name=".IntentFilterService"  android:exported="false">
+         <intent-filter>
+             <action android:name="com.review.service.intent.action"/>
+             <category android:name="android.intent.category.DEFAULT"/>
+         </intent-filter>
+    </service>
+    //通过隐式意图打开service 会报错
+    intent = new Intent("com.review.service.intent.action");
+    intent.addCategory(Intent.CATEGORY_DEFAULT);
+    startService(intent);
+java.lang.IllegalArgumentException: Service Intent must be explicit: Intent { act=com.review.service.intent.action cat=[android.intent.category.DEFAULT] }
+    at android.app.ContextImpl.validateServiceIntent(ContextImpl.java:1558)
+    at android.app.ContextImpl.startServiceCommon(ContextImpl.java:1599)
+    at android.app.ContextImpl.startService(ContextImpl.java:1571)
+    at android.content.ContextWrapper.startService(ContextWrapper.java:669)
+    at com.review.service.MainActivity.onClick(MainActivity.java:83)
+
+5、8.0 后台服务限制
+8.0禁止应用在后台startService
+
+关于 onStartCommand(Intent intent, int flags, int startId)的返回值
+1)START_STICKY
+简单来说，就是service进程被kill后，系统会重新创建Service，onCreate...onStartCommand, 但是不保留那些传入的intent,所以intent=null;
+2)START_NOT_STICKY
+简单来说，就是service进程被kill后，不会重新创建。
+3)START_REDELIVER_INTENT
+简单来说，在运行onStartCommand后service进程被kill后，系统将会再次启动service，并传入最后一个intent给onstartCommand。
+直到调用stopSelf(int)才停止传递intent。如果在被kill后还有未处理好的intent，那被kill后服务还是会自动启动。
+因此onstartCommand不会接收到任何null的intent。
+
+二、bindService/unbindService
+完成Activity与Service交互
+默认只支持相同进程内Activity与Service之间的交互，不支持跨进程(即Activity与其他进程内的Service进行bind)
+如果要支持与其他进程的Service绑定，需要使用aidl
+
+1、绑定服务
+ServiceConnection serviceConnection=  new ServiceConnection(){
+
+    @Override
+    public void onServiceConnected(ComponentName name, IBinder service) {
+        Log.d("MyService", "BinderService onServiceConnected ,name="+name+",service="+service);
+        BinderService.MyBinder binder= (BinderService.MyBinder) service;
+        binder.showToast();
+    }
+
+    @Override
+    public void onServiceDisconnected(ComponentName name) {
+        Log.d("MyService", "BinderService onServiceDisconnected");
+    }
+};
+intent = new Intent(this, BinderService.class);
+bindService(intent,serviceConnection, Context.BIND_AUTO_CREATE);
+生命周期：onCreate onBind onServiceConnected
+重复绑定服务无效果
+
+2、解绑服务
+unbindService(serviceConnection);
+生命周期：onDestroy
+重复调用unbindService会抛出异常：Service not registered
+
+三、前台Service
+在Service的onCreate中startForeground(1, notification);
+
+四、IntentService
+1、IntentService是继承Service的，那么它包含了Service的全部特性，当然也包含service的生命周期，那么与service不同的是，IntentService在执行onCreate操作的时候，内部开了一个线程，去你执行你的耗时操作。
+2、线程
+IntentService的onCreate、onStartCommand、onDestroy回调方法都是运行在主线程中的，onHandleIntent是运行在工作线程中的
+因为只有一个线程，IntentService不能并行处理多个job，只能依次处理，一个接一个，当所有的job完成后，会自动执行onDestroy方法而无需我们自己调用stopSelf()或stopSelf(startId)方法。
+3、 public int onStartCommand(Intent intent, int flags, int startId)
+startId为当前开启Service的次数，比如连续开启2次IntentService
+MyIntentService onStartCommand,flags=0,startId=1,thread=main
+MyIntentService,onHandleIntent ,thread=IntentService[MyIntentService]
+MyIntentService onStartCommand,flags=0,startId=2,thread=main
+MyIntentService,onHandleIntent ,thread=IntentService[MyIntentService]
+MyIntentService onDestroy,thread=main
+
+五、JobService
+
+六、在其他进程中开启Service
+<service android:name=".ProcessService" android:process=":remote"/>
+则ProcessService运行在remote进程中的主线程中。
+缺点：不支持不同进程内activity与service之间的bind, 要持支跨跨进程绑定，则需要使用aidl
+
+七、AIDL
+AIDL（Android Interface Definition Language）是Android接口定义语言的意思
+它可以用于让某个Service与多个应用程序组件之间进行跨进程通信，从而可以实现多个应用程序共享同一个Service的功能。
+
+1、AIDL 支持的数据类型划分为四类:
+1、Java 的基本类型
+Java语言提供了八种基本类型：byte short int long float double char boolean。不需要import。
+2、 String、List、Map 和 CharSequence
+List，Map内的元素必须是AIDL支持，接收方必须是ArrayList，HashMap。不需要import。
+3、其他AIDL定义的接口
+传递的是引用，需要 import。
+4、实现Parcelable的类
+值传递，需要 import。
+
+2、in表示是输入参数，out表示是输出参数，inout表示输入输出参数，先传入参数，处理后传出

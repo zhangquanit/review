@@ -1,0 +1,87 @@
+
+-----------------------------Activity、Window、View 三者的差别
+Activity像一个工匠（控制单元），Window像窗户（承载模型），View像窗花（显示视图） LayoutInflater像剪刀，Xml配置像窗花图纸。
+
+Activity
+是Android应用程序的载体，允许用户在其上创建一个用户界面，并提供用户处理事件的API，如onKeyEvent, onTouchEvent等.它仅仅是一个界面的载体，本身并不负责任何绘制。
+Window
+是一个界面的窗口（唯一的实现类是PhoneWindow），是存放view的容器。Android中所有的视图都是通过Window来呈现的，比如Activity，Dialog，Toast，他们的视图都是附着在Window上的。
+View
+负责具体的绘制和展示
+
+
+总结如下：
+1、Activity通过Instrumention创建后，会调用它的attach方法
+final void attach(Context context, ActivityThread aThread...)(
+        attachBaseContext(context);
+        //创建一个PhoneWindow
+        mWindow = new PhoneWindow(this, window);
+        mWindow.setCallback(this);
+        //设置windowManager
+        mWindow.setWindowManager(WindowManagerImpl())
+
+}
+2、setContentView(view)
+Activity.setContentView(view)
+-->PhoneWindow.setContentView(view)
+   创建DecorView 将view添加到DecorView中
+
+ public class PhoneWindow extends Window{
+     private DecorView mDecor;
+     private ViewGroup mContentParent; //对应R.id.content的FrameLayout容器，用来添加我们的内容布局
+
+     @Override
+     public final View getDecorView() {
+         reutrn mDecor;
+     }
+
+     @Override
+     public void setContentView(View view, ViewGroup.LayoutParams params) {
+
+         if (mContentParent == null) {
+            mDecor= new DecorView(context, featureId, this, getAttributes());
+            mContentParent = (ViewGroup)mDecor.findViewById(com.android.internal.R.id.content);
+         }
+
+         mContentParent.addView(view, params); //将我们的内容布局添加到R.id.content中
+     }
+
+3、添加到ViewRootImpl中(测量、布局、绘制)
+Activity{
+    void makeVisible() {
+        if (!mWindowAdded) {
+            ViewManager wm = getWindowManager();
+            wm.addView(mDecor, getWindow().getAttributes());
+            mWindowAdded = true;
+        }
+        mDecor.setVisibility(View.VISIBLE);
+    }
+}
+
+注意：一切View都要通过WindowManger设置ViewRootImpl中，才能进行测量、布局、绘制。
+
+--------------Dialog
+Dialog{
+   Dialog(){
+        final Window w = new PhoneWindow(mContext);
+        w.setWindowManager(WindowManagerImpl())
+   }
+
+   void show(){
+       View mDecor = mWindow.getDecorView();
+       WindowManager.LayoutParams l = mWindow.getAttributes();
+       mWindowManager.addView(mDecor, l);//添加到ViewRootImpl中
+   }
+}
+
+
+
+
+
+
+
+
+
+
+
+

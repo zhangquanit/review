@@ -1,0 +1,16 @@
+n
+https://blog.csdn.net/weixin_40763897/article/details/89018306
+
+StrictMode具体能检测什么呢
+StrictMode主要检测两大问题：线程策略（TreadPolicy）和VM策略（VmPolicy）。
+
+ThreadPolicy线程策略：
+自定义的耗时调用，使用detectCustomSlowCalls()开启；
+磁盘读取操作，使用detectDiskReads()开启；
+磁盘写入操作，使用detectDiskWrites()开启；
+网络操作，使用detectNetwork()开启。
+VmPolicy虚拟机策略：
+Activity泄漏，使用detectActivityLeaks()开启；
+未关闭的Closable对象泄漏，使用detectLeakedClosableObjects()开启；
+泄漏的Sqlite对象，使用detectLeakedSqlLiteObjects()开启；
+检测实例数量，使用setClassInstanceLimit()开启。

@@ -1,0 +1,36 @@
+https://blog.csdn.net/harrain/article/details/53726960?utm_medium=distribute.pc_relevant.none-task-blog-baidulandingword-11&spm=1001.2101.3001.4242
+
+public class ViewGroup extends View {
+    protected void dispatchDraw(Canvas canvas) {
+
+        for (int i = 0; i < childrenCount; i++) {
+             drawChild(canvas, transientChild, drawingTime);
+        }
+    }
+
+    protected boolean drawChild(Canvas canvas, View child, long drawingTime) {
+        return child.draw(canvas, this, drawingTime);
+    }
+}
+
+public class View{
+
+    public void draw(Canvas canvas) {
+
+    }
+
+    boolean draw(Canvas canvas, ViewGroup parent, long drawingTime) {
+        boolean concatMatrix = false;
+        final Animation a = getAnimation();
+        if (a != null) {
+            more = applyLegacyAnimation(parent, drawingTime, a, scalingRequired);
+            concatMatrix = a.willChangeTransformationMatrix();
+            if (concatMatrix) {
+                mPrivateFlags3 |= PFLAG3_VIEW_IS_ANIMATING_TRANSFORM;
+            }
+            transformToApply = parent.getChildTransformation();
+        } else {
+
+        }
+    }
+}

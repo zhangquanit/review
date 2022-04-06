@@ -1,0 +1,127 @@
+
+参照项目：leakcanary
+
+ LeakCanary.install(this);
+
+  if (watchActivities) { //监听Activity内存泄露
+    ActivityRefWatcher.install(context, refWatcher);
+  }
+  if (watchFragments) { //监听Fragment内存泄露
+    FragmentRefWatcher.Helper.install(context, refWatcher);
+  }
+
+---------------监听Activity内存泄露
+  private final Application.ActivityLifecycleCallbacks lifecycleCallbacks =
+      new ActivityLifecycleCallbacksAdapter() {
+        @Override public void onActivityDestroyed(Activity activity) {
+          refWatcher.watch(activity);
+        }
+      };
+
+--------------监听Fragment内存泄露
+  private final Application.ActivityLifecycleCallbacks activityLifecycleCallbacks =
+        new ActivityLifecycleCallbacksAdapter() {
+          @Override public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
+            AndroidOFragmentRefWatcher watcher=AndroidOFragmentRefWatcher(refWatcher));
+              watcher.watchFragments(activity);
+          }
+        };
+
+  //onActivityCreated 中注册监听fragmentManager.registerFragmentLifecycleCallbacks
+  public void watchFragments(Activity activity) {
+    FragmentManager fragmentManager = activity.getFragmentManager();
+    fragmentManager.registerFragmentLifecycleCallbacks(fragmentLifecycleCallbacks, true);
+  }
+  private final FragmentManager.FragmentLifecycleCallbacks fragmentLifecycleCallbacks =
+      new FragmentManager.FragmentLifecycleCallbacks() {
+
+        @Override public void onFragmentViewDestroyed(FragmentManager fm, Fragment fragment) {
+          View view = fragment.getView();
+          if (view != null) {
+            refWatcher.watch(view);
+          }
+        }
+
+        @Override
+        public void onFragmentDestroyed(FragmentManager fm, Fragment fragment) {
+          refWatcher.watch(fragment);
+        }
+      };
+
+  -------------检测对象
+   Set<String> retainedKeys= new CopyOnWriteArraySet<>();
+   ReferenceQueue<Object> queue = new ReferenceQueue<>();
+
+    public void watch(Object watchedReference) {
+      watch(watchedReference, "");
+    }
+
+    public void watch(Object watchedReference, String referenceName) {
+      final long watchStartNanoTime = System.nanoTime();
+      String key = UUID.randomUUID().toString();
+      retainedKeys.add(key);
+      //WeakReference弱引用，被回收后会放到ReferenceQueue中
+      final KeyedWeakReference reference =
+          new KeyedWeakReference(watchedReference, key, referenceName, queue);
+
+        Looper.myQueue().addIdleHandler(new MessageQueue.IdleHandler() {
+            @Override
+            public boolean queueIdle() {
+                postToBackgroundWithDelay(reference);
+                return false;
+            }
+        });
+    }
+
+    private void postToBackgroundWithDelay(KeyedWeakReference reference) {
+        backgroundHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                //检测是否已回收
+                removeWeaklyReachableReferences();
+
+                if (gone(reference)) {
+                    System.out.println("已回收");
+                    return;
+                }
+
+                System.out.println("触发GC");
+                //GC
+                Runtime.getRuntime().gc();
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    throw new AssertionError();
+                }
+                System.runFinalization();
+
+                //再次检测是否已回收
+                removeWeaklyReachableReferences();
+
+                if (!gone(reference)) {
+                    System.out.println("还没有回收,dump内存信息");
+                    File downloadsDirectory = Environment.getExternalStoragePublicDirectory(DIRECTORY_DOWNLOADS);
+                    File storageDirectory = new File(downloadsDirectory, "leakcanary-" + getPackageName());
+                    File heapDumpFile = new File(storageDirectory, UUID.randomUUID().toString() + "_pending.hprof");
+                    try {
+                        Debug.dumpHprofData(heapDumpFile.getAbsolutePath());
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+                    //解析hprof文件，展示到界面
+                }
+            }
+        }, delayTime);
+    }
+
+    private boolean gone(KeyedWeakReference reference) {
+        return !retainedKeys.contains(reference.key);
+    }
+
+    private void removeWeaklyReachableReferences() {
+        KeyedWeakReference ref;
+        while ((ref = (KeyedWeakReference) queue.poll()) != null) {
+            retainedKeys.remove(ref.key);
+        }
+    }

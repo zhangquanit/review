@@ -1,0 +1,82 @@
+
+
+JVM的类加载是通过ClassLoader及其子类来完成的
+
+一、四种类加载器
+1）Bootstrap ClassLoader
+负责加载$JAVA_HOME中jre/lib/rt.jar里所有的class，由C++实现，不是ClassLoader子类
+2）Extension ClassLoader
+负责加载java平台中扩展功能的一些jar包，包括$JAVA_HOME中jre/lib/ext/*.jar或-D java.ext.dirs指定目录下的jar包
+3）App ClassLoader
+负责记载classpath中指定的jar包及目录中class
+4）Custom ClassLoader
+属于应用程序根据自身需要自定义的ClassLoader，如tomcat、jboss都会根据j2ee规范自行实现ClassLoader
+
+继承关系：
+ExtClassLoader
+    ---AppClassLoader
+         ---自定义ClassLoader
+
+二、类加载器的委托机制
+加载过程中会先检查类是否被已加载，检查顺序是自底向上，从Custom ClassLoader到BootStrap ClassLoader逐层检查，
+只要某个classloader已加载就视为已加载此类，保证此类只所有ClassLoader加载一次。
+而加载的顺序是自上向下，也就是由上层来逐层尝试加载此类。
+
+    protected Class<?> loadClass(String name, boolean resolve)
+        throws ClassNotFoundException
+    {
+        synchronized (getClassLoadingLock(name)) {
+            // 检查当前ClassLoader是否已加载过该Class
+            Class<?> c = findLoadedClass(name);
+            if (c == null) {
+                  //从下往上检查是否已加载class
+                try {
+                    if (parent != null) {
+                        c = parent.loadClass(name, false); //父加载器
+                    } else {
+                        c = findBootstrapClassOrNull(name); //启动类加载器
+                    }
+                } catch (ClassNotFoundException e) {
+                }
+
+                //如果没有加载过class 则从上向下加载(findClass)
+                if (c == null) {
+                    c = findClass(name);
+                }
+            }
+            if (resolve) {
+                resolveClass(c);
+            }
+            return c;
+        }
+    }
+
+
+三、自定义ClassLoader
+实现findclass方法，一般用defineClass加载外部类
+public class MyClassLoader extends ClassLoader {
+    @Override
+    protected Class<?> findClass(String name) {
+        String myPath = "file:///Users/allen/Desktop/" + name.replace(".","/") + ".class";
+        System.out.println(myPath);
+        byte[] cLassBytes = null;
+        Path path = null;
+        try {
+            path = Paths.get(new URI(myPath));
+            cLassBytes = Files.readAllBytes(path);
+        } catch (IOException | URISyntaxException e) {
+            e.printStackTrace();
+        }
+        Class clazz = defineClass(name, cLassBytes, 0, cLassBytes.length);
+        return clazz;
+    }
+}
+
+问：如何才能不走双亲委派。（重写loadClass方法）
+
+不同ClassLoader加载的同名Class，转换也会报错。java.lang.ClassCastException
+
+四、三个重要函数
+loadClass：调用父类加载器的loadClass，加载失败则调用自己的findClass方法
+findClass：根据名称读取文件存入字节数组
+defineClass：把一个字节数组转为Class对象

@@ -1,0 +1,52 @@
+
+https://developer.android.google.cn/studio/profile
+
+查看布局
+View--Tool Windows--Layout Inspector
+
+Android Studio 3.0 及更高版本中的 Android Profiler 取代了 Android Monitor 工具。
+Android Profiler 工具可提供实时数据，帮助您了解应用的 CPU、内存、网络和电池资源使用情况。
+
+打开Profiler
+View--Tool Windows--Profiler
+
+测试module：performance
+
+一、检查CPU活动
+检查应用的 CPU 使用率和线程活动，也可以检查记录的方法跟踪数据、函数跟踪数据和系统跟踪数据的详细信息。
+解决方法耗时等。
+
+可导出trace文件分析
+
+二、Memory内存分析
+主要分析内存占用、内存泄露
+
+可导出hprof文件
+要使用其他 HPROF 分析器（如 jhat），您需要将 HPROF 文件从 Android 格式转换为 Java SE HPROF 格式。
+您可以使用 android_sdk/platform-tools/ 目录中提供的 hprof-conv 工具执行此操作。
+运行包含两个参数（即原始 HPROF 文件和转换后 HPROF 文件的写入位置）的 hprof-conv 命令。例如：
+
+hprof-conv heap-original.hprof heap-converted.hprof
+
+
+三、查看网络活动
+当您的应用向网络发出请求时，设备必须使用高功耗的移动或 WLAN 无线装置来收发数据包。
+无线装置不仅要消耗电力来传输数据，而且还要消耗额外的电力来开启并且不锁定屏幕。
+
+使用网络性能剖析器，您可以查找频繁出现的短时网络活动峰值。这些峰值意味着，您的应用要求经常开启无线装置，
+或要求无线装置长时间不锁定屏幕以处理集中出现的大量短时请求。这种模式说明您可以通过批量处理网络请求，
+减少必须开启无线装置来发送或接收数据的次数，从而优化应用，改善电池性能。
+这种方式还能让无线装置切换到低功耗模式，延长批量处理请求之间的间隔时间，节省电量。
+
+Network Profiler 仅支持 HttpURLConnection 和 OkHttp 网络连接库。
+
+四、检查能耗情况
+使用 Energy Profiler 查找可能会影响耗电量的系统事件，包括唤醒锁定(wakelock)、闹钟
+1、唤醒锁定是一种机制，可在设备进入休眠模式时使 CPU 或屏幕保持开启状态。
+请求唤醒锁定不是一项耗电量很高的操作，但未撤消唤醒锁定会导致屏幕或 CPU 保持开启状态的时间超过必要时间，从而加快电池耗电速度。
+
+2、您可以使用闹钟定期在应用上下文之外运行后台任务。当闹钟触发时，它可能会唤醒设备并运行耗电量很高的代码。
+3、位置信息请求使用 GPS 传感器，这会消耗大量电量。
+
+
+建议使用 JobScheduler 对作业进行调度，而不是使用闹钟或唤醒锁定。

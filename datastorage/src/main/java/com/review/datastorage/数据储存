@@ -1,0 +1,131 @@
+Android中五种数据存储方法
+一、使用SharedPreferences存储数据
+1、SharedPreferences文件保存在 data/data/{包名}/shared_prefs目录下
+2、SharedPreferences在多进程共享下的局限
+参考：http://www.jianshu.com/p/bdebf741221e
+1）在Android 4.0上支持跨进程访问
+SharedPreferences sh = c.getSharedPreferences(PREFERENCE_NAME, Context.MODE_WORLD_READABLE | Context.MODE_MULTI_PROCESS);
+注意需要加上Context.MODE_MULTI_PROCESS参数,但是不能保证多进程间同步
+简单看下MODE_MULTI_PROCESS是如何处理的：
+读取数据：getSharedPreferences()时，如果加了MODE_MULTI_PROCESS，则会强制让SP进行一次读取操作，从而保证数据是最新的。因此如果你在外部保存了一份SP的对象，反而会导致享受不到MODE_MULTI_PROCESS带来的同步效果了
+写入数据：commit()，每次会先保存到内存，然后再写入文件，而写文件的操作又是在子线程中依次按顺序执行的。
+那么结论就出来了：
+当多个进程同时而又高频的调用commit方法时，就会导致文件被反复覆盖写入，而并没有被及时读取，所以造成进程间数据的不同步。
+2）通过ContentProvider进行实现多进程共享SharedPreferences
+SP本身的调用方式已经提供了较高的存取便利性，所以我们只要封装出一个SPHelper，去调用SPContentProvider，SPContentProvider用于保证跨进程的同步性，其内部再用SPHelperImpl来做真正的实现即可。
+
+SP中的方法有sava，get，remove，clean，getAll这几种。
+那么我们可以用update或insert来实现save；用delete实现clean和remove，用getType或者query实现get和getAll。
+
+二、文件存储数据
+1、内部文件系统
+getFileDir
+目录： data/data/{包名}/files
+getCacheDir
+目录： data/data/{包名}/cache
+getExternalFilesDir
+目录：storage/sdcard/Android/data/{包名}/files
+getExternalCacheDir
+目录：storage/sdcard/Android/data/{包名}/cache
+getPackageResourcePath APP安装目录
+getPackageCodePath
+目录：/data/app/com.review.datastorage-1/base.apk 或/data/app/com.review.datastorage-2/base.apk
+
+内部文件系统为应用私有的，随着apk卸载自动删除，外部应用如果要访问应用私有文件，android7.0上可使用FileProvide共享
+
+
+Android应用安装涉及到如下几个目录：
+system/app系统自带的应用程序，无法删除。
+data/app用户程序安装的目录，有删除权限。安装时把apk文件复制到此目录。
+data/data存放应用程序的数据。
+data/dalvik-cache将apk中的dex文件安装到dalvik-cache目录下(dex文件是dalvik虚拟机的可执行文件,其大小约为原始apk文件大小的四分之一)。
+APP安装过程：复制APK安装包到data/app目录下，解压并扫描安装包，把dex文件(Dalvik字节码)保存到dalvik-cache目录，并data/data目录下创建对应的应用数据目录。
+APP卸载过程：删除安装过程中在上述三个目录下创建的文件及目录。
+
+2、外部文件系统
+指SD卡上除了sdcard/Android/data应用私有目录
+
+3、/storage/sdcard， /sdcard， /mnt/sdcard 三者的区别
+参考：http://blog.csdn.net/ouyang_peng/article/details/47173367
+http://www.cnblogs.com/bluestorm/p/3694921.html
+
+sdcard也就是储存卡，路径都是一直存在于mnt文件夹的，mnt是安卓unix传统系统下挂载外部设备的专用目录，
+mnt/sdcard是实际的文件所在的地方，/sdcard是mnt/sdcard的虚拟或快捷方式. 在android系统是必须这样运作的哦。
+
+
+三、SQLite数据库存储数据
+db安装目录：/data/data/{包名}/databases/xx.db
+1、SQLite简介
+1）特点：
+轻量级：SQLite和C/S模式的数据库软件不同，它是进程内的数据库引擎，因此不存在数据库的客户端和服务器。
+跨平台/可移植性 ：
+弱类型的字段 ：同一列中的数据可以是不同类型
+
+2）数据类型：
+integer  保存整数，包括byte、short、int、long
+number 可储存整数和浮点数
+varchar(n) 长度不固定且其最大长度为 n 的字串，n不能超过 4000。
+char(n)：长度固定为n的字串，n不能超过 254。
+text: 值为文本字符串,使用数据库编码存储(TUTF-8, UTF-16BE or UTF-16-LE).
+
+2、SQLiteDatabase介绍
+Android提供了创建和使用SQLite数据库的API。SQLiteDatabase代表一个数据库对象，提供了操作数据库的一些方法。在Android的SDK目录下有sqlite3工具，我们可以利用它创建数据库、创建表和执行一些SQL语句。
+context.getDatabasePath(dbName); //获取数据库安装路径
+SQLiteDatabase.openOrCreateDatabase(databaseFile, null); 打开或创建数据库
+SQLiteDatabase.openDatabase(String path, CursorFactory factory, int flags) 打开数据库
+操作数据库的api：insert、update、delete、query、execSQL、close
+
+3、SQLiteOpenHelper
+该类是SQLiteDatabase一个辅助类。这个类主要生成一个数据库，并对数据库的版本进行管理。
+当在程序当中调用这个类的方法getWritableDatabase()或者 getReadableDatabase()方法的时候，如果当时没有数据，那么Android系统就会自动生成一个数据库。
+SQLiteOpenHelper 是一个抽象类，我们通常需要继承它，并且实现里面的2个函数：
+1）onCreate（SQLiteDatabase）
+在数据库第一次生成的时候会调用这个方法，也就是说，只有在创建数据库的时候才会调用，当然也有一些其它的情况，一般我们在这个方法里边生成数据库表。
+2）onUpgrade（SQLiteDatabase，int，int）
+当数据库需要升级的时候(比如表的增加或删除、字段的增加或删除)，Android系统会主动的调用这个方法。
+
+getWritableDatabase()或getReadableDatabase()：如果数据库不存在，则会创建数据库
+
+4、使用adb命令查看数据库
+
+
+四、使用ContentProvider存储数据
+当app启动时，就会注册contentProvider，很多第三方sdk都通过ContentProvider来完成初始化。
+App.attachBaseContext...ContentProvider.onCreate...App.onCreate
+
+参考：
+http://www.jianshu.com/p/f5ec75a9cfea
+http://blog.csdn.net/chuyuqing/article/details/39995607
+
+ContentProvider可以实现在应用程序之间共享数据.
+Android为常见的一些数据提供了默认的ContentProvider（包括音频、视频、图片和通讯录等）。 所以我们可以在其他应用程通过那些ContentProvider获取这些数据.
+ContentProvider一般为存储和获取数据提供统一的接口，可以在不同的应用程序之间共享数据。
+之所以使用ContentProvider，主要有以下几个理由：
+1、ContentProvider提供了对底层数据存储方式的抽象,为存储和读取数据提供了统一的接口。
+比如，底层使用了SQLite数据库，在用了ContentProvider封装后，即使你把数据库换成MongoDB，也不会对上层数据使用层代码产生影响。
+2、Android框架中的一些类需要ContentProvider类型数据。
+如果你想让你的数据可以使用在如SyncAdapter, Loader, CursorAdapter等类上，那么你就需要为你的数据做一层ContentProvider封装。
+3、使用ContentProvider，应用程序可以实现数据共享，并为应用间的数据交互提供了一个安全的环境。
+它准许你把自己的应用数据根据需求开放给其他应用进行增、删、改、查，而不用担心直接开放数据库权限而带来的安全问题。
+
+ContentResolver
+为什么我们不直接访问Provider，而是又在上面加了一层ContentResolver来进行对其的操作，这样岂不是更复杂了吗？其实不然，大家要知道一台手机中可不是只有一个Provider内容，
+它可能安装了很多含有Provider的应用，比如联系人应用，日历应用，字典应用等等。有如此多的Provider，如果你开发一款应用要使用其中多个，如果让你去了解每个ContentProvider的不同实现，岂不是要头都大了。
+所以Android为我们提供了ContentResolver来统一管理与不同ContentProvider间的操作。
+那ContentResolver是如何来区别不同的ContentProvider的呢？这就涉及到URI（Uniform Resource Identifier）问题
+
+URI
+格式：content://{authority}/path/id
+    Authority：授权信息，用以区别不同的ContentProvider；
+    Path：表名，用以区分ContentProvider中不同的数据表；
+    Id：Id号，用以区别表中的不同数据；
+
+content://contacts/people/  这个URI将返回设备上的所有联系人信息
+content://contacts/people/45 这个URI返回单个结果（联系人信息中ID为45的联系人记录）
+上面content://contacts/people/45这个URI就可以写成如下形式：
+Uri person = ContentUris.withAppendedId("content://contacts/people",  45);
+
+五、网络存储数据
+
+
+注意：敏感数据需要加密存储或者加密传输

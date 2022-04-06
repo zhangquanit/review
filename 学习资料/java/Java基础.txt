@@ -1,0 +1,596 @@
+
+面向对象的三大特征？
+一、封装
+封装就是隐藏对象的属性和实现细节，控制在程序中属性的读和修改的访问级别。
+将抽象得到的数据和行为（或功能）相结合，形成一个有机的整体，也就是将数据与操作数据的源代码进行有机的结合，形成“类”，其中数据和函数都是类的成员。
+二、继承
+继承就是子类继承父类的特征和行为，使得子类对象（实例）具有父类的实例域和方法，或子类从父类继承方法，使得子类具有父类相同的行为。
+三、多态
+同一个行为具有多个不同表现形式或形态的能力，
+1、多态存在的三个必要条件：
+继承
+重写（子类继承父类后对父类方法进行重新定义）
+父类引用指向子类对象
+　　简言之，多态其实是在继承的基础上的。
+2、多态的好处？
+可替换性、可扩充性、接口性、灵活性、简化性
+3、代码中如何实现多态？
+实现多态主要有以下三种方式：
+1）接口实现
+2）继承父类，重写方法
+3）同一类中进行方法的重载
+
+
+switch可比较的数据类型?
+byte、short、int、char，以及它们包装类型.
+枚举
+从JDK1.7开始支持 String。
+
+什么是不可变对象?
+不可变对象指对象一旦被创建，状态就不能再改变。任何修改都会创建一个新的对象，如 String、Integer及其它包装类。
+
+java 创建对象的几种方式?
+采用new
+通过反射
+采用clone
+通过序列化机制
+
+Object中有哪些公共方法?
+equals()
+clone()
+getClass()
+hashCode()
+notify(),notifyAll(),wait()
+
+a=a+b与a+=b有什么区别吗?
+byte a = 127;
+byte b = 127;
+b = a + b; // 编译错误，因为 a+b 操作会将 a、b 提升为 int 类型，所以将 int 类型赋值给 byte 就会编译出错
+b += a; // ok，+=运算符是java支持的，会自动进行转换
+
+64位的JVM当中,int的长度是多少?
+Java 中，int 类型变量的长度是一个固定值，与平台无关，都是 32 位。
+意思就是说，在 32 位 和 64 位 的Java 虚拟机中，int 类型的长度是相同的。
+
+
+
+1. 接口的意义(百度)
+规范、便于扩展、解决回调
+特别说明：
+从JDK1.8开始，接口中允许定义方法的实现(静态方法)
+2. 抽象类的意义(乐视)
+1）为其子类提供一个公共的类型
+2）封装子类中重复定义的内容
+3）定义抽象方法
+
+3. 内部类的作用(百度,乐视)
+
+4. 父类的静态方法能否被子类重写,为什么?(猎豹)
+不能
+子类继承父类后，拥有相同的静态方法和非静态方法。注意：抽象类中也可以定义静态方法
+
+接口中可以有方法的实现么？
+从JDK1.8开始，接口方法中允许有方法的实现(静态方法)
+
+5. 举 1-2 个排序算法,并使用 java 代码实现(美团)
+http://blog.csdn.net/qy1387/article/details/7752973
+6. 列举 java 的集合和继承关系(百度、美团)
+Collection
+    --List
+         --LinkedList
+         --ArrayList
+         --Vector
+             --Stack
+    --Set
+         --HashSet
+ Map
+    --HashTable
+    --HashMap
+         --LinkedHashMap
+    --TreeMap
+
+
+
+LinkedHashMap和PriorityQueue的区别？
+LinkedHashMap 维持的是元素插入的顺序。
+PriorityQueue 是一个优先级队列,保证最高或者最低优先级的的元素总是在队列头部，与插入顺序无关.要求元素实现Comparable或者传入Comparator
+
+WeakHashMap与HashMap的区别是什么?
+WeakHashMap 的工作与正常的 HashMap 类似，但是使用弱引用作为 key，意思就是当 key 对象没有任何引用时，key/value 将会被回收。
+
+如何实现集合排序?
+1、可以使用有顺序的的集合，如 list，然后通过 Collections.sort() 来排序。
+2、对于Map， 可以使用TreeMap
+3、对于Set， 可以使用TreeSet
+
+如何打印数组内容？
+你可以使用 Arrays.toString() 和 Arrays.deepToString() 方法来打印数组。由于数组没有实现 toString() 方法，所以如果将数组传递给 System.out.println() 方法，将无法打印出数组的内容
+
+遍历ArrayList时如何正确移除一个元素？
+应该使用 Iterator<E> iterator=list.iterator()
+         while(iterator.hasNext()){
+            E e=iteraotr.next();
+         }
+
+SimpleDateFormat是线程安全的吗?
+DateFormat 的所有实现，包括 SimpleDateFormat 都不是线程安全的。建议将 SimpleDateFormat 限制在 ThreadLocal 中
+
+7. java 虚拟机的特性(百度、乐视)
+Java语言的一个非常重要的特点就是与平台的无关性。而使用Java虚拟机是实现这一特点的关键。
+一般的高级语言如果要在不同的平台上运行，至少需要编译成不同的目标代码。
+而引入Java语言虚拟机后，Java语言在不同平台上运行时不需要重新编译。Java语言使用模式Java虚拟机屏蔽了与具体平台相关的信息，
+Java虚拟机在执行字节码时，把字节码解释成具体平台上的机器指令执行。
+
+8. 哪些情况下的对象会被垃圾回收机制处理掉(乐视、美团、小米)
+1）不再被引用的对象 2）内存不足的情况下下，那些使用软引用、弱引用的对象。
+
+11. Java 中==和 equals 的区别,equals 和 hashCode 的区别(乐视)
+public class Object {
+public native int hashCode();
+public boolean equals(Object obj) {
+	return (this == obj);
+}
+}
+==和equals的区别：
+1）==
+ 比较的是对象的引用是否为同一个内存地址
+2）equals
+ equals是Object类中的方法，默认也是比较内存地址，可以被覆写，覆写后一般是通过对象的内容是否相等来判断对象是否相等
+3）hashCode
+hashCode()是Object类中的方法，返回一个哈希值。如果两个对象根据equals()方法比较相等，那么两个对象的hashCode()方法产生的哈希值也相等。
+反之，如果两个对象的哈希值相等，则不能保证两个对象相等。
+
+hashcode常用于基于hash的集合类，比如HashMap、HashSet等，它与equals方法关系特别紧密，根据Java规范，两个使用equals()方法来判断相等
+的对象，必须具有相同的hashCode。所以重写equals一般也需要重写hashcode
+
+ @Override
+ public V put(K key, V value) {
+        if (key == null) {
+            return putValueForNullKey(value);
+        }
+
+        int hash = Collections.secondaryHash(key);
+        HashMapEntry<K, V>[] tab = table;
+        int index = hash & (tab.length - 1);
+        for (HashMapEntry<K, V> e = tab[index]; e != null; e = e.next) {
+            if (e.hash == hash && key.equals(e.key)) { //同时比较hash和equals
+                preModify(e);
+                V oldValue = e.value;
+                e.value = value;
+                return oldValue;
+            }
+        }
+
+        // No entry for (non-null) key is present; create one
+        modCount++;
+        if (size++ > threshold) {
+            tab = doubleCapacity();
+            index = hash & (tab.length - 1);
+        }
+        addNewEntry(key, value, hash, index);
+        return null;
+    }
+ArrayList是比较的equals()。
+
+12. ArrayList 和 HashMap 的实现原理(美团,百度)
+13. java 中 int char long 各占多少字节数
+byte 位数 8 字节数 1   1byte=8bit;
+short 16 2
+int 32 4
+long 64 8
+float 32 4
+double 64 8
+char 16 2
+14. int 与 Integer 的区别
+int是基本数据类型
+Integer是类类型，是int的包装类，因此具有类的所有特性，比如创建Integer需要new,类中还提供了与其他数据类型之间转换的方法，比如toString，floatValue等
+public final class Integer extends Number implements Comparable<Integer> {
+  private final int value;
+  public Integer(int value) {
+      this.value = value;
+  }
+ public Integer(String s) throws NumberFormatException {
+      this.value = parseInt(s, 10);
+  }
+ public int intValue() {
+          return value;
+      }
+ public float floatValue() {
+         return (float)value;
+     }
+ public String toString() {
+         return toString(value);
+     }
+
+}
+
+关于Integer的补充说明：
+Integer内部有一个IntegerCache类，
+private static class IntegerCache {
+        static final int low = -128;
+        static final int high=127;
+        static final Integer cache[]; //[-128 ... 127] 数组中封装了从-128 到127的Integer对象
+    }
+public static Integer valueOf(int i) {
+    //如果-128<=i<=127  则直接从cache数组中获取，因此-128到127的Integer对象都是相等的
+    if (i >= IntegerCache.low && i <= IntegerCache.high)
+        return IntegerCache.cache[i + (-IntegerCache.low)];
+    return new Integer(i);
+}
+根据以上可知，-128到127的Integer对象都是相等的
+Integer a=1;
+Integer b=1;
+a==b  true
+Integer c=128;
+Integer d=128;
+a==b  false
+
+15. String、StringBuffer、 StringBuilder的 区别(小米、乐视、百度)
+1、可变与不可变
+String类中使用字符数组保存字符串，因为有“final”修饰符，所以可以知道string对象是不可变的
+  final char value[];
+StringBuffer与StringBuilder也是使用字符数组保存字符串，但是是可变的。
+　char[] value;
+2、是否多线程安全
+String中的对象是不可变的，也就可以理解为常量，显然线程安全。
+StringBuffer对方法加了同步锁或者对调用的方法加了同步锁，所以是线程安全的。
+StringBuilder并没有对方法进行加同步锁，所以是非线程安全的。
+3、StringBuffer与StringBuilder的区别
+StringBuffer与StringBuilder的区别就是StringBuffer是线程安全的，StringBuilder是线程非安全的。
+
+3、运行速度
+StringBuilder > StringBuffer > String
+String为字符串常量，而StringBuilder和StringBuffer均为字符串变量，即String对象一旦创建之后该对象是不可更改的，但后两者的对象是变量，是可以更改的。
+对变量进行操作就是直接对该对象进行更改，而不进行创建和回收的操作，所以速度要比String快很多
+        String a="str";
+        String b="str";
+        String c=new String("str");
+        String d=new String("str");
+        System.out.println("a==b->"+(a==b)); //true
+        System.out.println("a==c->"+(a==c)); //false
+        System.out.println("c==d->"+(c==d)); //false
+
+16. Java 多态(乐视)
+17. 什么导致线程阻塞(58、美团)
+http://www.iteye.com/topic/1129528
+
+
+
+18. 抽象类、接口区别(360)
+1）抽象类是class，具有类的特性，比如具有构造函数，单继承的限制，抽象类可以实现接口
+抽象类中可以普通方法、抽象方法。
+2）接口是interface，接口可以继承多个接口，但是不能实现接口，接口中的变量都是常量，接口中的方法都是public修饰的
+接口没有构造方法，必须由实现类创建。
+3）开发中推荐面向接口编程。一是可以隐藏实现，二是避免由于类的单继承带来的限制
+
+19. 容器类之间的区别(乐视、美团)
+http://www.cnblogs.com/yuanermen/archive/2009/08/05/1539917.html
+
+数组与链表的比较
+1）数组是将元素在内存中连续存放，可以通过下标迅速访问数组中任何元素。而对于数组插入和删除操作，则效率会比较低，
+在第一个位置进行插入数据，其余数据就需要依次向后移动，而第一个数据进行删除，则需要所有数据全部向前移。
+当数组元素满后，需要创建新的数组，并把原来数组中的元素拷贝到新数组中。
+@Override public boolean add(E object) {
+    Object[] a = array;
+    int s = size;
+    if (s == a.length) { //数组装满
+         //创建一个新的数组
+        Object[] newArray = new Object[s +
+                (s < (MIN_CAPACITY_INCREMENT / 2) ?
+                 MIN_CAPACITY_INCREMENT : s >> 1)];
+        System.arraycopy(a, 0, newArray, 0, s); //元素拷贝到新数组中
+        array = a = newArray;
+    }
+    a[s] = object;
+    size = s + 1;
+    modCount++;
+    return true;
+}
+特点是：寻址速度快，插入和删除速度慢
+2）链表中的元素在内存中不是顺序存储的，而是通过存在元素中的指针联系到一起，上一个元素有个指针指到下一个元素，
+因此查找需要遍历，插入和删除，直接改变next引用就可以了。
+public class Node{
+ public Object data;
+ public Node next; //引用下一个元素
+}
+特点是：寻址速度慢，插入和删除速度快
+
+ArrayList:默认大小是10，当容量满了,size=oldsize+oldsize/2; 最大容量不超过Integer.MAX_VALUE
+
+
+20. Java 中 HashMap 和 HashTable 的区别(乐视、小米)
+    1）、HashTable中的方法使用synchronized同步，是线程安全的，HashMap不是线程安全的。
+    在不考虑线程安全的情况下，使用HashMap效率更高
+    2）、HashTable的key和value都不能使用null，HashMap允许key或value=null
+    3）、HashTable继承Dictionary，实现了map接口，HashMap继承AbstractMap，AbstractMap实现了Map接口
+21. ArrayMap VS HashMap
+http://lvable.com/?p=217
+
+HashMap:
+JDK7
+HashMap由数组+链表组成的，数组是HashMap的主体，链表则是主要为了解决哈希冲突而存在的，
+如果定位到的数组位置不含链表（当前entry的next指向null）,那么对于查找，添加等操作很快，仅需一次寻址即可；
+如果定位到的数组包含链表，对于添加操作，其时间复杂度为O(n)，首先遍历链表，存在即覆盖，否则新增；
+对于查找操作来讲，仍需遍历链表，然后通过key对象的equals方法逐一比对查找。所以，性能考虑，HashMap中的链表出现越少，性能才会越好。
+
+哈希冲突原因：
+1、对key取hash值
+2、获取数组的index
+index=key.hashCode()%table.length()    index:0 ~ table.length-1
+由于这个算法得到的值不是固定的，导致不同的hash值也可能得到相同的index，这就是hash冲突的原因，因此使用链表来存储。
+
+链表：
+MapEntry old=table[index] 获取数组中该位置已有的节点
+MapEntry newNode=new MapEntry(key,value,old){
+   next=old; //当前节点的next指向之前的old节点
+}
+table[index]=newNode; 然后替换数组index的节点
+
+我们第一次新建一个HashMap对象的时候，默认的容量是16，若你只打算在HashMap里放入3个元素那将浪费至少13个空间。
+Java库里的HashMap其实是一个连续的链表数组，通过让key计算hash值后插入对应的index里。当hash值发生碰撞时，
+可以采用线性探测，二次hash，或者后面直接变成链表的结构来避免碰撞。因为hash的值不是连续的，
+所以hashmap实际需要占用的大小会比它实际能装的item的容量要大。
+
+LoadFactor:
+加载因子是表示Hsah表中元素的填满的程度.
+加载因子越大,填满的元素越多,好处是,空间利用率高了,但冲突的机会加大了.
+反之,加载因子越小,填满的元素越少,好处是冲突的机会减小了,但空间浪费多了.
+冲突的机会越大,则查找的成本越高.反之,查找的成本越小.因而,查找时间就越小.
+因此,必须在 "冲突的机会"与"空间利用率"之间寻找一种平衡与折衷,默认为0.75
+如果数组长度=16，因此可以得出HashMap的默认容量是：0.75*16=12。
+
+HashMap()：构建一个初始容量为 16，负载因子为 0.75 的 HashMap。
+HashMap(int initialCapacity)：构建一个初始容量为 initialCapacity，负载因子为 0.75 的 HashMap。
+HashMap(int initialCapacity, float loadFactor)：以指定初始容量、指定的负载因子创建一个 HashMap。
+
+>>1 表示除以2  <<1表示乘以2
+比如 int index=2   index<<1 =2*2=4   index>>1 =2/2=1
+
+public abstract class AbstractMap<K, V> implements Map<K, V>
+public class HashMap<K, V> extends AbstractMap<K, V> implements Map<K, V>, Cloneable, Serializable {
+@Override public V put(K key, V value) {
+        if (key == null) { //允许key=null，则只有一个key=null
+            return putValueForNullKey(value);
+        }
+
+        int hash = Collections.secondaryHash(key); //二次hash，将key.hashCode()再次进行hash算法
+        HashMapEntry<K, V>[] tab = table;
+        int index = hash & (tab.length - 1); //找到该hash在table中的index
+        for (HashMapEntry<K, V> e = tab[index]; e != null; e = e.next) {//开始循环查找链表
+            if (e.hash == hash && key.equals(e.key)) { //hash值和key都相同的话
+                preModify(e);
+                V oldValue = e.value; //得到old value值
+                e.value = value; //替换为value值
+                return oldValue;
+            }
+        }
+
+        // 如果不存在  则保存
+        modCount++;
+        if (size++ > threshold) {
+            tab = doubleCapacity(); //数组长度双倍增长，但是threshold=0.75*数组长度，也就是达到总长度的0.75时，又需要双倍增长了。
+            index = hash & (tab.length - 1);
+        }
+
+        //创建一个HashMapEntry，替换当前index元素，并将之前的元素table[index]，用next引用
+        table[index] = new HashMapEntry<K, V>(key, value, hash, table[index]);
+        return null;
+    }
+
+ArrayMap:
+public final class ArrayMap<K, V> implements Map<K, V> {
+    int[] mHashes; //该数组保存的是key的hash值
+    Object[] mArray; //该数组保存的是连续的key,value
+    int mSize;
+
+    int indexOf(Object key, int hash) {
+           final int N = mSize;
+
+           // 空数组
+           if (N == 0) {
+               return ~0;
+           }
+
+           //二分法查找hash在数组中的index
+           int index = ContainerHelpers.binarySearch(mHashes, N, hash);
+
+           //未保存过该key
+           if (index < 0) {
+               return index;
+           }
+
+           // 如果该index查找的key是正确的，则返回，否则继续查找（因为hash值相等，key可能不相等）
+           if (key.equals(mArray[index<<1])) {
+               return index;
+           }
+
+           // 从index向后查找
+           int end;
+           for (end = index + 1; end < N && mHashes[end] == hash; end++) {
+               if (key.equals(mArray[end << 1])) return end;
+           }
+
+           // 从index向前查找
+           for (int i = index - 1; i >= 0 && mHashes[i] == hash; i--) {
+               if (key.equals(mArray[i << 1])) return i;
+           }
+
+           // Key not found -- return negative value indicating where a
+           // new entry for this key should go.  We use the end of the
+           // hash chain to reduce the number of array entries that will
+           // need to be copied when inserting.
+           return ~end;
+       }
+         /**
+          * 添加数据
+          */
+         public V put(K key, V value) {
+               final int hash;
+               int index;
+               if (key == null) { //key=null
+                   hash = 0;
+                   index = indexOfNull();
+               } else {    //查找该key hash值的index
+                   hash = key.hashCode();
+                   index = indexOf(key, hash);
+               }
+
+               if (index >= 0) { //之前已经保存过key，则替换value
+                   index = index*2 + 1;
+                   final V old = (V)mArray[index];
+                   mArray[index] = value;
+                   return old; //返回value
+               }
+
+               //检查数组长度
+
+               //保存数据
+               mHashes[index] = hash;
+               mArray[index<<1] = key;
+               mArray[(index<<1)+1] = value;
+               mSize++;
+               return null;
+           }
+
+}
+他用两个数组来模拟Map，第一个数组存放存放item的hash值，第二数组是把key，value连续的存放在数组里，[key1,value1,key2,value2,key3,value3]
+通过先算hash在第一个数组里找到它的hash index(通过二分法查找)，根据这个index在去第二个数组里找到这个key-value。hash和key必须同时相等，否则从index向前向后查找。
+这个数据结构的设计就做到了，有多少个item我就分配多少内存，做到了memory的节约。
+
+22.HashSet
+HashSet: 元素无序的，且不能重复
+public abstract class AbstractCollection<E> implements Collection<E>
+public abstract class AbstractSet<E> extends AbstractCollection<E> implements Set<E>
+public class HashSet<E> extends AbstractSet<E> implements Set<E>, Cloneable, Serializable {
+ transient HashMap<E, HashSet<E>> backingMap; //key为v添加的值，value为当前对象，由于key不重复，则保证了HashSet中的元素不重复
+
+  @Override
+    public boolean add(E object) {
+        return backingMap.put(object, this) == null;
+    }
+   @Override
+    public boolean remove(Object object) {
+        return backingMap.remove(object) != null; // map.remove(key)
+    }
+}
+---LinkedHashSet
+---TreeSet
+
+23.HashTable
+特点：
+1、方法使用synchronized同步，是线程安全的，HashMap不是线程安全的。
+在不考虑线程安全的情况下，使用HashMap效率更高
+2、key和value都不能使用null，HashMap允许key或value=null
+3、Hashtable继承Dictionary，实现了map接口，HashMap继承AbstractMap，AbstractMap实现了Map接口
+
+public abstract class Dictionary<K, V>
+public class Hashtable<K, V> extends Dictionary<K, V>implements Map<K, V>, Cloneable, Serializable {
+ private transient HashtableEntry<K, V>[] table;
+ public synchronized V put(K key, V value) {
+        if (key == null) {
+            throw new NullPointerException("key == null");
+        } else if (value == null) {
+            throw new NullPointerException("value == null");
+        }
+        int hash = Collections.secondaryHash(key);
+        HashtableEntry<K, V>[] tab = table;
+        int index = hash & (tab.length - 1);
+        HashtableEntry<K, V> first = tab[index];
+        for (HashtableEntry<K, V> e = first; e != null; e = e.next) {
+            if (e.hash == hash && key.equals(e.key)) {
+                V oldValue = e.value;
+                e.value = value;
+                return oldValue;
+            }
+        }
+
+        // No entry for key is present; create one
+        modCount++;
+        if (size++ > threshold) {
+            rehash();  // Does nothing!!
+            tab = doubleCapacity();
+            index = hash & (tab.length - 1);
+            first = tab[index];
+        }
+        tab[index] = new HashtableEntry<K, V>(key, value, hash, first);
+        return null;
+    }
+
+}
+
+22.四种引用类型的介绍
+1）强引用(Strong Reference)
+JVM 宁可抛出 OOM ，也不会让 GC 回收具有强引用的对象。。强引用不使用时，可以通过 obj = null 来显式的设置该对象的所有引用为 null，这样就可以回收该对象了。至于什么时候回收，取决于 GC 的算法
+2）软引用(Soft Reference)
+SoftReference<String> softReference = new SoftReference<>(str);
+如果一个对象只具有软引用，那么在内存空间足够时，垃圾回收器就不会回收它；如果内存空间不足了，就会回收这些对象的内存。
+3）弱引用(Weak Reference)
+WeakReference<String> weakReference = new WeakReference<>(str);
+与软引用的区别在于：只具有弱引用的对象拥有更短暂的生命周期。因为在 GC 时，一旦发现了只具有弱引用的对象，不管当前内存空间足够与否，都会回收它的内存。
+不过，由于垃圾回收器是一个优先级很低的线程，因此不一定会很快发现那些只具有弱引用的对象- -。
+4）虚引用(PhantomReference)
+与其他几种引用都不同，虚引用并不会决定对象的生命周期，也无法通过虚引用获得对象实例。
+
+
+数据结构与算法
+1. 堆和栈在内存中的区别是什么(数据结构方面以及实际实现方面)
+2. 最快的排序算法是哪个?给阿里 2 万多名员工按年龄排序应该选择哪个算法?堆和树
+  的区别;写出快排代码;链表逆序代码(阿里)
+3. 求 1000 以内的水仙花数以及 40 亿以内的水仙花数(百度)
+4. 子串包含问题(KMP 算法)写代码实现
+5. 万亿级别的两个 URL 文件 A 和 B,如何求出 A 和 B 的差集 C,(Bit 映射->hash 分组->多文
+件读写效率->磁盘寻址以及应用层面对寻址的优化)
+6. 蚁群算法与蒙特卡洛算法
+7. 写出你所知道的排序算法及时空复杂度,稳定性(小米)
+其他
+1. 死锁的四个必要条件？
+public class ThreadDeadlock {
+
+    public static void main(String[] args) throws InterruptedException {
+        Object obj1 = new Object();
+        Object obj2 = new Object();
+
+       //让obj1和obj2两个锁对象在同步块中互相等待
+        Thread t1 = new Thread(new SyncThread(obj1, obj2), "t1"); //线程1在等待obj2同步锁，而线程2正在使用obj2同步锁
+        Thread t2 = new Thread(new SyncThread(obj2, obj3), "t2"); //线程2在等待obj1同步锁，而线程1正在使用obj1同步锁
+
+        t1.start();
+        Thread.sleep(5000);
+        t2.start();
+    }
+
+}
+
+class SyncThread implements Runnable{
+    private Object lock1;
+    private Object lock2;
+
+    public SyncThread(Object o1, Object o2){
+        this.lock1=o1;
+        this.lock2=o2;
+    }
+    @Override
+    public void run() {
+        synchronized (lock1) {
+             work();
+             synchronized (lock2) { //互相等待
+                work();
+             }
+        }
+    }
+    private void work() {
+        try {
+            Thread.sleep(30000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+}
+2. 常见编码方式;utf-8 编码中的中文占几个字节;int 型几个字节？
+一个汉字一般占3个字节
+一个数字占1个字节
+一个字母占1个字节
+3. 实现一个 Json 解析器(可以通过正则提高速度)？
+
+
+

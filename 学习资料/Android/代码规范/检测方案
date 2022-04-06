@@ -1,0 +1,127 @@
+
+http://mp.weixin.qq.com/s/-yKylnQT8-Je4PIpgBe52g?utm_source=tuicool&utm_medium=referral
+http://blog.csdn.net/yulyu/article/details/54973494
+
+参照：config/quality 目录下的配置
+
+在项目中使用四种插件lint、findBugs、PMD、 CheckStyles 检测提高代码质量。
+一、Lint
+检测范围:
+    潜在的bug
+    可优化的代码
+    安全性
+    性能
+    可用性
+    可访问性
+    国际化
+
+二、findBugs
+FindBugs是一个Java静态分析工具，用来检查类或者jar文件，用来发现可能的问题。检测完成之后会生成一份详细的报告，借助这份报告可以找到潜在的bug，比如NullPointException，特定的资源没有关闭，查询数据库没有调用Cursor.close()等
+1、检测范围
+常见代码错误，序列化错误
+可能导致错误的代码，如空指针引用
+国际化相关问题：如错误的字符串转换
+可能受到的恶意攻击，如访问权限修饰符的定义等
+多线程的正确性：如多线程编程时常见的同步，线程调度问题。
+运行时性能问题：如由变量定义，方法调用导致的代码低效问题
+
+2、使用方法
+安装插件 FindBugs-IDEA
+自定义规则
+1）在gradle里面添加 apply plugin: 'findbugs'
+2) 新建task
+task findbugs(type: FindBugs, dependsOn: "assembleDebug") {
+    ignoreFailures = false
+    effort = "max"
+    reportLevel = "high"
+    excludeFilter = new File("$configDir/findbugs/findbugs-filter.xml")//这里是自定义的规则
+    classes = files("${project.rootDir}/app/build/intermediates/classes")
+
+    source 'src'
+    include '**/*.java'
+    exclude '**/gen/**'
+
+    reports {
+        xml.enabled = false
+        html.enabled = true
+        xml {
+            destination "$reportsDir/findbugs/findbugs.xml"  //这里是报告产生的路径
+        }
+        html {
+            destination "$reportsDir/findbugs/findbugs.html"  //这里是报告产生的路径
+        }
+    }
+
+    classpath = files()
+}
+
+三、PMD
+1、检测范围:
+可能的bug——空的try/catch/finally/switch块。
+无用代码(Dead code)：无用的本地变量，方法参数和私有方法。
+空的if/while语句。
+过度复杂的表达式——不必要的if语句，本来可以用while循环但是却用了for循环。
+可优化的代码：浪费性能的String/StringBuffer的使用。
+
+2、使用方法
+安装插件 QAPlug - PMD
+自定义规则
+1）在gradle里面添加 apply plugin: 'pmd'
+2) 新建task
+task pmd(type: Pmd) {
+    ignoreFailures = false
+    ruleSetFiles = files("$configDir/pmd/pmd-ruleset.xml") //这里是自定义的规则
+    ruleSets = []
+
+    source 'src'
+    include '**/*.java'
+    exclude '**/gen/**'
+
+    reports {
+        xml.enabled = false
+        html.enabled = true
+        xml {
+            destination "$reportsDir/pmd/pmd.xml"  //这里是报告产生的路径
+        }
+        html {
+            destination "$reportsDir/pmd/pmd.html"  //这里是报告产生的路径
+        }
+    }
+}
+
+四、CheckStyles
+CheckStyles是用来检测java代码规范性的
+1、检测范围
+注解
+javadoc注释
+命名规范
+文件头
+导入包规范
+尺寸设置
+空格
+正则表达式
+修饰符
+代码块
+编码问题
+类设计问题
+重复、度量以及一些杂项
+
+2、使用方法
+安装插件 CheckStyle-IDEA
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

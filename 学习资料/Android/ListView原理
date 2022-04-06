@@ -1,0 +1,161 @@
+public abstract class AdapterView<T extends Adapter> extends ViewGroup
+public abstract class AbsListView extends AdapterView<ListAdapter>
+public class ListView extends AbsListView
+public class GridView extends AbsListView
+1)Adapter
+Adapter是适配器的意思，就是帮ListView去适配数据源的，它在ListView和数据源之间起到了一个桥梁的作用，ListView并不会直接和数据源打交道，而是会借助Adapter这个桥梁来去访问真正的数据源
+Adapter本身是一个接口，所以它能实现各种各样的子类，子类就通过自己特定的逻辑去完成特定的功能，去适配特定的数据。例如，ArrayAdapter可以用于数组和List类型的数据源适配等等。
+我们继承Adapter的时候，有一个灰常重要的方法需要我们重写，那就是public View getView()方法。一般我们会这样写：
+@Override
+public View getView(int position, View convertView, ViewGroup parent) {
+    View view;
+    if (convertView == null) {
+        view = LayoutInflater.from(context).inflate(resourceId, null);
+        ······
+    } else {
+        view = convertView;
+    }
+    ······
+    return view;
+}
+
+2）解决 ScrollView嵌套ListView——解决滑动冲突问题
+  public class MyListView extends ListView {
+
+      public MyListView(Context context, AttributeSet attrs, int defStyle) {
+          super(context, attrs, defStyle);
+      }
+
+      public MyListView(Context context, AttributeSet attrs) {
+          super(context, attrs);
+      }
+
+      public MyListView(Context context) {
+          super(context);
+      }
+      @Override
+      protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+         //解決嵌套在 ScrollView的 ListVew数据显示不全
+          int heightSpec = MeasureSpec.makeMeasureSpec(Integer.MAX_VALUE >> 2,MeasureSpec.AT_MOST);
+          super.onMeasure(widthMeasureSpec, heightSpec);
+      }
+  }
+
+http://blog.csdn.net/guolin_blog/article/details/44996879
+3)RecycleBin缓存机制
+它是写在AbsListView中的一个内部类，所以所有继承自AbsListView的子类，也就是ListView和GridView，都可以使用这个机制。
+变量：
+1. private View[] mActiveViews : 缓存屏幕上可见的view
+2. private int mViewTypeCount : ListView中的子view的不同布局类型总数
+3. ArrayList<View>[] mScrapViews : ListView中所有的废弃缓存。注意，这是一个数组。在ListView中，每种childView布局类型都会单独启用一个RecycleBin缓存机制。所以数组中的每一项ArrayList都对应着一种childView布局类型的废弃缓存。
+4. ArrayList<View> mCurrentScrap : 当前childView布局类型下的废弃缓存。
+
+方法：
+1. void fillActiveViews () : 此方法会将ListView中的指定元素存储到mActiveViews数组当中。
+2. View getActiveView () : 从mActiveViews中获取指定的元素。取出view后，在mActiveViews里的该指定位置将被置空。所以这个mActiveViews只能使用一次，并不能复用。
+3. void addScrapView () : 将一个废弃的view进行缓存。如果childView的布局类型只有一项，就直接缓存到mCurrentScrap。如果多种布局，则从mScrapViews找到相对应的废弃缓存ArrayList并缓存view。
+4. View getScrapView () : 从废弃缓存中取出一个View。同理，如果childView的布局类型只有一项，就直接从mCurrentScrap中取。如果多种布局，则从mScrapViews找到相对应的缓存ArrayList再取出view。
+5. void setViewTypeCount () : 为mViewTypeCount设置childView布局类型总数，并为每种类型的childView单独启用一个RecycleBin缓存机制。
+
+RecycleBin缓存机制的工作原理：
+ListView每当一项子view滑出界面时，RecycleBin会调用addScrapView()方法将这个废弃的子view进行缓存。
+每当子view滑入界面时，RecycleBin会调用getScrapView()方法获取一个废弃已缓存的view。
+所以我们再看回Adapter的getView()方法：
+@Override
+public View getView(int position, View convertView, ViewGroup parent) {
+    View view;
+    if (convertView == null) {
+        view = LayoutInflater.from(context).inflate(resourceId, null);
+        ······
+    } else {
+        view = convertView;
+    }
+    ······
+    return view;
+}
+这个convertView是什么？convertView就是RecycleBin缓存机制调用getScrapView()方法获取废弃已缓存的view。
+if (convertView == null)，当convertView为空，也就是没有废弃已缓存的view时，将调用LayoutInflater的inflate()方法加载出来布局view。
+
+4）ListView的工作原理
+每一个View的工作流程都是分为三步，ListView也不例外：onMeasure()测量，接着onLayout()布局，最后onDraw()绘制。今天我们的重点就是在onLayout()方法上。
+View在显示到界面的过程中，会进行两次onMeasure()和onLayout()过程。
+第一次onLayout() ：
+ListView在加载子项视图的时候，先判断是否有子元素、RecycleBin缓存机制中是否已经有缓存视图了。由于此时ListView是第一次加载，没有任何视图，
+RecycleBin中也没有任何的缓存记录，所以ListView就直接进行计算，绘制子view等等一系列操作。
+第二次onLayout() ：
+到了第二次onLayout()的时候，要注意，因为在有了第一次onLayout()的过程，ListView现在已经加载好了子项视图了。
+所以当ListView再次判断子元素是否为空时，现在子元素不再等于0了。所以这次会进行下面这些操作：
+1. ListView首先调用RecycleBin缓存机制的fillActiveViews()方法，将第一次onLayout()已经加载好的视图全部缓存到mActiveViews中，
+然后再detach掉第一次所有加载好的视图。这样就解决了第二次onLayout()再次加载视图的时候，出现数据重复的问题。
+2. 巧妙的是，在接下来加载子项视图的时候，也是先判断RecycleBin缓存机制中的mActiveViews是否为空，
+但是因为刚才ListView已经把第一次加载好的子视图全部缓存到了mActiveViews中了，所以此时mActiveViwe并不空，
+接下来就只要把mActiveViews里面的视图全部attach到ListView上，这样ListView中所有子视图又全部显示出来了。
+
+mActiveViews和mCurrentViews有什么区别。还记得mActiveViews是不能复用的么？所以mActiveViews的作用就一个地方，
+就是专门为第二次onLayout()这个过程缓存第一次加载好的子视图。而mCurrentViews是缓存滑出界面的废弃子view。
+
+完成了两次onLayout()过程后，我们就能看到了ListView中的内容了。但这过程只体现到了ListView的第一次加载子视图的过程，
+如果我们ListView有1000项数据，当前第一次加载屏幕只显示了10项数据，剩下的990项数据是怎么通过我们滑动来显示到屏幕上来的呢？
+所以接下来介绍，ListView的滑动部分的工作原理。
+
+
+5)ListView的滑动部分工作原理
+滑动部分的机制是写在AbsListView当中的。那么监听触控事件是在onTouchEvent()方法当中进行的。onTouchEvent()方法内有个switch()条件判断。
+1. 首先当判断到我们的动作是滑动时，就计算出我们触发event事件手指在Y方向上的位移距离。
+2. 根据这个距离计算出view是否滑出了界面之外，如果滑出了界面之外，RecycleBin缓存机制就调用addScrapView()方法将这个View加入到废弃缓存当中，然后再将这个view进行detach掉。因为这个view已经移出界面了，所以没必要为它保存。
+3. 接下来，所有子视图就根据这个距离进行相应的偏移。当发现ListView中最后一个View的底部已经移入了屏幕，或者ListView中第一个View的顶部移入了屏幕时，就会对ListView进行填充。
+
+View obtainView(int position, boolean[] isScrap) {
+    isScrap[0] = false;
+    View scrapView;
+    scrapView = mRecycler.getScrapView(position);
+    View child;
+    if (scrapView != null) {
+        child = mAdapter.getView(position, scrapView, this);
+        if (child != scrapView) {
+            mRecycler.addScrapView(scrapView);
+            if (mCacheColorHint != 0) {
+                child.setDrawingCacheBackgroundColor(mCacheColorHint);
+            }
+        } else {
+            isScrap[0] = true;
+            dispatchFinishTemporaryDetach(child);
+        }
+    } else {
+        child = mAdapter.getView(position, null, this);
+        if (mCacheColorHint != 0) {
+            child.setDrawingCacheBackgroundColor(mCacheColorHint);
+        }
+    }
+    return child;
+}
+在填充的时候，ListView先调用RecycleBin缓存机制中的getScrapView()方法来尝试从废弃缓存中获取一个View。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

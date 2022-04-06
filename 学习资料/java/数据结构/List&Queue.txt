@@ -1,0 +1,527 @@
+public abstract class AbstractCollection<E> implements Collection<E>
+public abstract class AbstractList<E> extends AbstractCollection<E> implements List<E>
+
+>>1 表示除以2  <<1表示乘以2
+---------------------------------ArrayList
+List 接口的大小可变数组的实现,元素是有序的。
+默认容量为10，当容量不够时自动增长  size=oldSize+oldSize/2;
+
+public class ArrayList<E> extends AbstractList<E> implements Cloneable, Serializable, RandomAccess{
+transient Object[] array;
+int size;
+protected transient int modCount = 0; //改变次数，比如add，remove，iterator and list iterator迭代的时候，如果去修改数据，则会抛出异常
+public ArrayList() {
+    array = EmptyArray.OBJECT;
+}
+public ArrayList(int capacity) { //指定初始化长度
+    if (capacity < 0) {
+        throw new IllegalArgumentException("capacity < 0: " + capacity);
+    }
+    array = (capacity == 0 ? EmptyArray.OBJECT : new Object[capacity]);
+}
+
+public boolean add(E object) {
+        Object[] a = array;
+        int s = size;
+        if (s == a.length) { //如果数组长度不够，则创建一个新的数组，并将原来的元素拷贝到新数组中
+           // int len= s < (MIN_CAPACITY_INCREMENT / 2) ?MIN_CAPACITY_INCREMENT : s >> 1)
+            int len=s+s<6?12:s/2; // 长度<6 则增长12个元素，否则增长原来长度的一半。
+            Object[] newArray = new Object[len];
+            System.arraycopy(a, 0, newArray, 0, s);
+            array = a = newArray;
+        }
+        a[s] = object; //赋值给数组元素
+        size = s + 1; //size+1
+        modCount++;
+        return true;
+    }
+ @Override
+ public void add(int index, E object) {
+        Object[] a = array;
+        int s = size;
+        if (index > s || index < 0) {
+            throwIndexOutOfBoundsException(index, s);
+        }
+
+        if (s < a.length) {//插入到指定位置  其他元素 后移一位
+            System.arraycopy(a, index, a, index + 1, s - index);
+        } else {
+            Object[] newArray = new Object[newCapacity(s)]; //创建新数组
+            System.arraycopy(a, 0, newArray, 0, index); //将原来的元素全被拷贝到新数组中
+            System.arraycopy(a, index, newArray, index + 1, s - index); //将指定index之后的元素后移1位
+            array = a = newArray;
+        }
+        a[index] = object; //赋值给当前index
+        size = s + 1; //长度+1
+        modCount++;
+    }
+
+    private static int newCapacity(int currentCapacity) {
+            int increment=(currentCapacity<6)?12:currentCapacity/2;
+             //<6个 就增长12个，否则增长当前长度的一半
+            return currentCapacity + increment;
+      }
+
+    @Override
+    public E remove(int index) {
+        Object[] a = array;
+        int s = size;
+        if (index >= s) {
+            throwIndexOutOfBoundsException(index, s);
+        }
+        E result = (E) a[index];
+        s=s-1;
+        System.arraycopy(a, index + 1, a, index, s - index); //将index位置之后的元素 前移1位
+        a[s] = null;  // 最后一个元素=null
+        size = s;  //size-1
+        modCount++;
+        return result;
+        }
+
+      //获取迭代器
+      public Iterator<E> iterator() {
+            return new Itr();
+        }
+     private class Itr implements Iterator<E> {
+            int expectedModCount = modCount;
+            public boolean hasNext() {
+                return cursor != size;
+            }
+
+            @SuppressWarnings("unchecked")
+            public E next() {
+                checkForComodification();
+            }
+
+            public void remove() {
+                if (lastRet < 0)
+                    throw new IllegalStateException();
+                checkForComodification(); //
+
+                try {
+                    ArrayList.this.remove(lastRet);
+                    cursor = lastRet;
+                    lastRet = -1;
+                    expectedModCount = modCount;
+                } catch (IndexOutOfBoundsException ex) {
+                    throw new ConcurrentModificationException();
+                }
+            }
+            final void checkForComodification() {
+                    if (modCount != expectedModCount)
+                        throw new ConcurrentModificationException();
+                }
+           }
+}
+1、add
+将元素添加到数组的末尾
+2、add(index,obj)
+将原index和index之后的元素后移1位，然后将元素插入到index位置
+3、remove(index)
+将原index之后的元素前移1位，然后将最后一个元素=null。
+4、不允许在遍历迭代器时，直接调用add、remove、set等修改数据结构
+在调用next或previous时会检查modCount，发现被修改了，则抛出异常
+final void checkForComodification() {
+    if (modCount != expectedModCount)
+        throw new ConcurrentModificationException();
+}
+但是可以调用iterator进行add、remove、set操作。
+
+------------------------------------Vector
+默认数组大小为10，当数组满了后，双倍扩容
+也可以通过构造函数传入默认大小和每次的扩容大小
+public Vector(int initialCapacity, int capacityIncrement)
+initialCapacity:初始化数组大小
+capacityIncrement：数组满了后，数组的扩容大小,0表示双倍扩容
+
+
+List 接口的大小可变数组的实现,元素是有序的。除了同步外，和ArrayList功能类似。对于get方法也使用同步，因此会造成性能浪费，
+如果需要同步，建议使用CopyOnWriteArrayList。
+public class Vector<E> extends AbstractList<E> implements List<E>,RandomAccess, Cloneable, Serializable
+
+-------------------------------------LinkedList
+List 接口的链接列表实现。采用双端队列。
+所有操作都是按照双重链接列表的需要执行的。
+public abstract class AbstractSequentialList<E> extends AbstractList<E> {
+public class LinkedList<E> extends AbstractSequentialList<E> implements
+        List<E>, Deque<E>, Queue<E>, Cloneable, Serializable{
+
+transient int size = 0;
+transient Link<E> voidLink;
+
+ //封装的bean对象
+private static final class Link<ET> {
+    ET data; //数据
+    Link<ET> previous;  //上一个引用
+    Link<ET> next; //下一个引用
+    Link(ET o, Link<ET> p, Link<ET> n) {
+        data = o;
+        previous = p;
+        next = n;
+    }
+}
+
+public LinkedList() {
+    voidLink = new Link<E>(null, null, null);
+    voidLink.previous = voidLink;
+    voidLink.next = voidLink;
+}
+
+public boolean add(E object) {
+    return addLastImpl(object);
+}
+private boolean addLastImpl(E object) {
+    Link<E> oldLast = voidLink.previous;
+    Link<E> newLink = new Link<E>(object, oldLast, voidLink);
+    voidLink.previous = newLink;
+    oldLast.next = newLink;
+    size++;
+    modCount++;
+    return true;
+}
+
+
+}
+
+--------------------------------------------------Queue
+子接口：
+    BlockingDeque<E>, BlockingQueue<E>, Deque<E>
+实现类：
+    AbstractQueue
+    线程不安全的
+    ArrayDeque、LinkedList、PriorityQueue
+    线程安全的
+    ArrayBlockingQueue、ConcurrentLinkedQueue, DelayQueue, LinkedBlockingDeque, LinkedBlockingQueue, PriorityBlockingQueue, SynchronousQueue
+
+队列： 元素插入到队列的末尾、从队列头部获取元素。
+除了基本的 Collection 操作外，队列还提供其他的插入、提取和检查操作。
+每个方法都存在两种形式：一种抛出异常（操作失败时），另一种返回一个特殊值（null 或 false，具体取决于操作）。
+
+     抛出异常 返回特殊值
+插入 add(e)    offer(e)
+移除 remove()  poll()
+检查 element() peek()
+
+add(e)和offer(e)将元素e添加队列中
+如果容量不够，add会抛出异常，offer直接返回false
+remove() 和 poll() 方法可移除和返回队列的头。
+队列为空时，remove() 方法抛出一个异常，而 poll() 方法则返回 null
+element() 和 peek() 返回但不移除队列的头
+
+1、队列通常（但并非一定）以 FIFO（先进先出）的方式排序各个元素。
+根据提供的比较器或元素的自然顺序对元素进行排序。在 FIFO 队列中，所有的新元素都插入队列的末尾。
+2、优先级队列和 LIFO 队列（或堆栈）
+按 LIFO（后进先出）的方式对元素进行排序。
+
+Queue 接口并未定义阻塞队列的方法，BlockingQueue阻塞队列
+Queue 实现通常不允许插入 null 元素，尽管某些实现（如 LinkedList）并不禁止插入 null。
+不建议插入null值，因为poll方法获取不到元素时返回null，此时就无法区分是元素值为null还是获取失败返回的null。
+
+
+-------------------------------------------Deque
+public interface Deque<E>extends Queue<E>
+子接口 ：BlockingDeque<E>
+实现类： ArrayDeque(非线程安全的), LinkedBlockingDeque, LinkedList(非线程安全的)
+一个线性 collection，支持在两端插入和移除元素。名称 deque 是“double ended queue（双端队列）”的缩写，
+此接口既支持有容量限制的双端队列，也支持没有固定大小限制的双端队列。
+此接口定义在双端队列两端访问元素的方法。
+
+           第一个元素（头部）         最后一个元素（尾部）
+      抛出异常       特殊值          抛出异常     特殊值
+插入 addFirst(e)    offerFirst(e)   addLast(e)   offerLast(e)
+移除 removeFirst()  pollFirst()     removeLast() pollLast()
+检查 getFirst()     peekFirst()     getLast()    peekLast()
+此接口扩展了 Queue 接口。在将双端队列用作队列时，将得到 FIFO（先进先出）行为。将元素添加到双端队列的末尾，从双端队列的开头移除元素。
+插入、移除和检查元素的机制同Queue。
+
+从 Queue 接口继承的方法完全等效于 Deque 方法，如下表所示：
+Queue 方法   等效 Deque 方法
+add(e)        addLast(e)
+offer(e)      offerLast(e)
+remove()      removeFirst()
+poll()        pollFirst()
+element()     getFirst()
+peek()        peekFirst()
+
+双端队列也可用作 LIFO（后进先出）堆栈。应优先使用此接口而不是遗留 Stack 类。
+在将双端队列用作堆栈时，元素被推入双端队列的开头并从双端队列开头弹出。堆栈方法完全等效于 Deque 方法，如下表所示：
+堆栈方法   等效 Deque 方法
+push(e)    addFirst(e)
+pop()      removeFirst()
+peek()     peekFirst()
+
+1）不建议插入null值，因为poll获取元素失败时也返回null，这样就无法得知是元素为null还是获取失败。
+2）与 List 接口不同，此接口不支持通过索引访问元素
+
+
+-------------------------------------------BlockingQueue
+阻塞队列，位于java.util.concurrent包下，是线程安全的
+public interface BlockingQueue<E>extends Queue<E>
+子接口：
+BlockingDeque<E>
+实现类：
+ArrayBlockingQueue, DelayQueue, LinkedBlockingDeque, LinkedBlockingQueue, PriorityBlockingQueue, SynchronousQueue
+支持两个附加操作的 Queue，这两个操作是：获取元素时等待队列变为非空，以及存储元素时等待空间变得可用。
+BlockingQueue 有四种处理方式
+第一种是抛出一个异常，第二种是返回一个特殊值（null 或 false，具体取决于操作），第三种是在操作可以成功前，无限期地阻塞当前线程，第四种是在放弃前只在给定的最大时间限制内阻塞。下表中总结了这些方法：
+    抛出异常   特殊值   阻塞     超时
+插入 add(e)    offer(e) put(e)   offer(e, time, unit)
+移除 remove()  poll()   take()   poll(time, unit)
+检查 element() peek()   不可用   不可用
+
+其他特性
+1）、BlockingQueue 不接受 null 元素。add、put 或 offer 一个 null 元素时，某些实现会抛出 NullPointerException.
+public boolean offerFirst(E e) {
+    if (e == null) throw new NullPointerException();
+ }
+2)BlockingQueue 可以是限定容量的。
+public LinkedBlockingDeque() {
+    this(Integer.MAX_VALUE);
+}
+public LinkedBlockingDeque(int capacity) { //构造函数限定容量
+    if (capacity <= 0) throw new IllegalArgumentException();
+    this.capacity = capacity;
+}
+3)BlockingQueue 实现主要用于生产者-使用者队列
+4)BlockingQueue是线程安全的
+
+Collections提供了大量集合类的支持
+
+支持两个附加操作的 Queue，这两个操作是：获取元素时等待双端队列变为非空；存储元素时等待双端队列中的空间变得可用。
+
+-------------------------------------------BlockingDeque
+支持两个附加操作的 Queue，这两个操作是：获取元素时等待双端队列变为非空；存储元素时等待双端队列中的空间变得可用。
+                    第一个元素（头部）
+     抛出异常        特殊值        阻塞         超时期
+插入 addFirst(e)    offerFirst(e) putFirst(e)   offerFirst(e, time, unit)
+移除 removeFirst()  pollFirst()   takeFirst()   pollFirst(time, unit)
+检查 getFirst()     peekFirst()    不适用       不适用
+                    最后一个元素（尾部）
+ 抛出异常            特殊值        阻塞         超时期
+插入 addLast(e)     offerLast(e)  putLast(e)    offerLast(e, time, unit)
+移除 removeLast()   pollLast()    takeLast()    pollLast(time, unit)
+检查 getLast()      peekLast()    不适用        不适用
+
+像所有 BlockingQueue 一样，BlockingDeque 是线程安全的，但不允许 null 元素，并且可能有（也可能没有）容量限制。
+BlockingDeque 实现可以直接用作 FIFO BlockingQueue。可作为BlockingQueue使用
+BlockingQueue 方法  等效的 BlockingDeque 方法
+                 插入
+add(e)               addLast(e)
+offer(e)             offerLast(e)
+put(e)               putLast(e)
+offer(e, time, unit) offerLast(e, time, unit)
+                移除
+remove()             removeFirst()
+poll()               pollFirst()
+take()               takeFirst()
+poll(time, unit)     pollFirst(time, unit)
+                检查
+element()            getFirst()
+peek()               peekFirst()
+
+
+
+-------------------------------------------同步集合
+一、通过Collections.synchronizedXX()获取同步集合类
+比如List
+public static <T> List<T> synchronizedList(List<T> list) {
+    if (list == null) {
+        throw new NullPointerException("list == null");
+    }
+    if (list instanceof RandomAccess) {
+        return new SynchronizedRandomAccessList<T>(list);
+    }
+    return new SynchronizedList<T>(list); //创建一个代理类来来将操作方法同步
+}
+static class SynchronizedList<E> extends SynchronizedCollection<E> implements List<E> {
+
+@Override
+public void add(int location, E object) {
+    synchronized (mutex) {
+        list.add(location, object);
+    }
+}
+@Override
+public E get(int location) {
+    synchronized (mutex) {
+        return list.get(location);
+    }
+}
+@Override
+public ListIterator<E> listIterator() {
+    synchronized (mutex) {
+        return list.listIterator();
+    }
+}
+}
+缺点：将读写方法都同步了，会对读操作降低效率。
+
+二、java.util.concurrent并发包
+传统集合在迭代时不能对集合进行修改,如果需要在迭代时对集合进行修改 可以使用同步集合类
+ConcurrentHashMap、        HashMap的同步类
+ConcurrentSkipListMap、    TreeMap的同步类
+ConcurrentSkipListSet、    TreeSet的同步类
+CopyOnWriteArrayList       ArrayList的同步类
+CopyOnWriteArraySet
+
+--------------------------------------------CopyOnWriteArrayList
+public class CopyOnWriteArrayList<E>
+    implements List<E>, RandomAccess, Cloneable, java.io.Serializable {
+final transient ReentrantLock lock = new ReentrantLock();//线程锁
+private transient volatile Object[] array; //数组
+public CopyOnWriteArrayList() {
+    array=new Object[0];
+}
+//获取数据不加锁
+public E get(int index) {
+    return (E) array[index];;
+}
+//添加数据
+public boolean add(E e) {
+    final ReentrantLock lock = this.lock;
+    lock.lock();
+    try {
+        Object[] elements = array;
+        int len = elements.length;
+        Object[] newElements = Arrays.copyOf(elements, len + 1); //创建一个新数组，并将数据拷贝到新数组中
+        newElements[len] = e; //设置数据
+        array=newElements; //再将新数组赋值给array
+        return true;
+    } finally {
+        lock.unlock();
+    }
+public ListIterator<E> listIterator() {
+    return new COWIterator<E>(array, 0);
+}
+static final class COWIterator<E> implements ListIterator<E> {
+
+        private final Object[] snapshot;
+        private int cursor;
+
+        private COWIterator(Object[] elements, int initialCursor) {
+            cursor = initialCursor;
+            snapshot = elements;
+        }
+
+        public boolean hasNext() {
+            return cursor < snapshot.length;
+        }
+
+        public boolean hasPrevious() {
+            return cursor > 0;
+        }
+
+        @SuppressWarnings("unchecked")
+        public E next() {
+            if (! hasNext())
+                throw new NoSuchElementException();
+            return (E) snapshot[cursor++];
+        }
+
+        @SuppressWarnings("unchecked")
+        public E previous() {
+            if (! hasPrevious())
+                throw new NoSuchElementException();
+            return (E) snapshot[--cursor];
+        }
+
+        public void remove() {
+            throw new UnsupportedOperationException();
+        }
+
+        public void set(E e) {
+            throw new UnsupportedOperationException();
+        }
+        public void add(E e) {
+            throw new UnsupportedOperationException();
+        }
+
+    }
+ }
+
+1、不支持通过iterator迭代器修改数据,比如iterator.add,iterator.remove,iterator.set
+2、支持在迭代时，调用list的add、remove、set方法。
+3、读取操作没有加同步，修改操作是同步的
+修改操作时，首先加同步锁，然后创建一个新数组，长度+1，将原来的数据拷贝到新数组中，放置数据后，再将新数组赋值给旧数组。然后解锁
+也就是说 读取数据时操作的是旧数组，修改操作时是操作的新数组（操作完毕后才赋值给新数组）
+4、缺点
+每次修改操作都会创建新数组，这样会造成性能开销
+所以适合多线程下，读取次数远远多于修改次数的List
+
+
+---------------------------------------------ConcurrentHashMap
+public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
+    implements ConcurrentMap<K,V>, Serializable {
+
+
+ }
+特点：线程安全，但是效率很高
+HashTable与ConcurrentHashMap比较
+1)HashTable每次同步执行的时候都要锁住整个结构，读写都需要加锁
+2）ConcurrentHashMap锁的方式是稍微细粒度的。
+ ConcurrentHashMap将hash表分为16个桶（默认值），诸如get,put,remove等常用操作只锁当前需要用到的桶。
+ 试想，原来 只能一个线程进入，现在却能同时16个写线程进入（写线程才需要锁定，而读线程几乎不受限制，之后会提到），并发性的提升是显而易见的。
+3）迭代器
+在迭代时，ConcurrentHashMap使用了不同于传统集合的快速失败迭代器的另一种迭代方式。
+在这种迭代方式中，当iterator被创建后集合再发生改变就不再是抛出 ConcurrentModificationException，
+取而代之的是在改变时new新的数据从而不影响原有的数 据，iterator完成后再将头指针替换为新的数据，
+这样iterator线程可以使用原来老的数据，而写线程也可以并发的完成改变，更重要的，这保证了多个线程并发执行的连续性和扩展性，
+是性能提升的关键。
+
+------------------------------------------------阻塞队列 put&take
+ArrayBlockingQueue, DelayQueue, LinkedBlockingDeque, LinkedBlockingQueue, PriorityBlockingQueue, SynchronousQueue
+
+=============相关接口
+public interface Queue<E>
+public interface Deque extends Queue
+public interface BlockingQueue<E> extends Queue<E>
+public interface BlockingDeque<E> extends BlockingQueue<E>, Deque<E>
+
+public abstract class AbstractQueue<E> extends AbstractCollection<E> implements Queue<E>
+
+public class ArrayBlockingQueue<E> extends AbstractQueue<E> implements BlockingQueue<E>, java.io.Serializable
+一个由数组支持的有界阻塞队列。此队列按 FIFO（先进先出）原则对元素进行排序。新元素插入到队列的尾部，队列获取操作则是从队列头部开始获得元素。
+构造对象时必须指定大小。
+public ArrayBlockingQueue(int capacity, boolean fair)
+fair:公平性，true表示阻塞的线程就按照FIFO的顺序执行，false表示不指定顺序
+
+public class LinkedBlockingQueue<E> extends AbstractQueue<E> implements BlockingQueue<E>, java.io.Serializable
+一个基于已链接节点的、范围任意的阻塞队列，新元素插入到队列的尾部，并且队列获取操作会获得位于队列头部的元素，
+链接队列的吞吐量通常要高于基于数组的队列。
+
+public class LinkedBlockingDeque<E> extends AbstractQueue<E> implements BlockingDeque<E>, java.io.Serializable
+一个基于已链接节点的、任选范围的阻塞双端队列。
+
+public class PriorityBlockingQueue<E> extends AbstractQueue<E> implements BlockingQueue<E>, java.io.Serializable
+一个无界阻塞队列，它使用与类 PriorityQueue 相同的顺序规则，并且提供了阻塞获取操作。
+里面存储的对象必须实现Comparable接口。队列通过这个接口的compare方法确定对象的priority。
+当然也可以指定比较器Comparator
+
+public class SynchronousQueue<E> extends AbstractQueue<E> implements BlockingQueue<E>, java.io.Serializable
+一种阻塞队列，其中每个 put 必须等待一个 take，反之亦然。同步队列没有任何内部容量，甚至连一个队列的容量都没有。
+不能在同步队列上进行 peek，因为仅在试图要取得元素时，该元素才存在；除非另一个线程试图移除某个元素，否则也不能（使用任何方法）添加元素；也不能迭代队列，因为其中没有元素可用于迭代。
+SynchronousQueue的一个使用场景是在线程池里。Executors.newCachedThreadPool()就使用了SynchronousQueue，
+这个线程池根据需要（新任务到来时）创建新的线程，如果有空闲线程则会重复使用，线程空闲了60秒后会被回收。
+
+public class DelayQueue<E extends Delayed> extends AbstractQueue<E> implements BlockingQueue<E>
+Delayed 元素的一个无界阻塞队列，只有在延迟期满时才能从中提取元素。
+如果延迟都还没有期满，则队列没有头部，并且 poll 将返回 null。
+在poll/take的时候，队列中元素会判定这个elment有没有达到超时时间，如果没有达到，poll返回null，而take进入等待状态。但是，除了这两个方法，队列中的元素会被当做正常的元素来对待。例如，size方法返回所有元素的数量，而不管它们有没有达到超时时间。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

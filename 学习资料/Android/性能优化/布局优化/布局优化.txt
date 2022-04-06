@@ -1,0 +1,74 @@
+使用AndroidStudio自带的Layout Inspector分析层级
+
+一、选择合适的容器 减少层级
+
+对于ViewGroup的选择问题：推荐FrameLayout > LinearLayout > RelativeLayout(为了优化布局，RelativeLayout会调用childrenView 的onMeasure()两次)，推荐阅读：LinearLayout与RelativeLayout的性能比较
+尽量不要嵌套使用RelativeLayout.
+尽量不要在嵌套的LinearLayout中都使用weight属性.
+善用TextView的Drawable减少布局层级
+使用ConstraintLayout减少View层级
+
+二、使用include 和merge标签减少复用布局而产生的布局嵌套，使用ViewStub懒加载减少渲染元素
+1、使用merge标签作为根布局的xml的子控件，会被添加到include所在的父容器组件中，减少一个层级。
+
+2、<ViewStub> 标签实质上是一个宽高都为 0 的不可见 View. 通过延迟加载布局的方式优化布局提升渲染性能.
+public final class ViewStub extends View {
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        setMeasuredDimension(0, 0); //宽高为0
+    }
+
+    @Override
+    public void draw(Canvas canvas) { //不参与绘制
+    }
+
+    @Override
+    protected void dispatchDraw(Canvas canvas) {
+    }
+}
+使用
+<ViewStub
+        android:id="@+id/view_stub"
+        android:layout="@layout/layout_to_show"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+在程序中调用 inflate() 方法来加载. 只能调用1次.
+首次设定 Visibility 为 VISIBLE 或 INVISIBLE, 也会触发 inflate(). 之后只是单纯的设置可见性.
+一旦调用inflate(),就会把ViewStub从父容器中移除，然后把渲染的view添加之前ViewStub对应的位置。
+    private void replaceSelfWithView(View view, ViewGroup parent) {
+        final int index = parent.indexOfChild(this); //ViewStub在父容器中的位置
+        parent.removeViewInLayout(this);//将ViewStub从父容器中移除
+
+       //将渲染的view添加到对应的位置
+        final ViewGroup.LayoutParams layoutParams = getLayoutParams();
+        if (layoutParams != null) {
+            parent.addView(view, index, layoutParams);
+        } else {
+            parent.addView(view, index);
+        }
+    }
+
+使用kotlin能很好地判断
+ view_stub?.inflate()
+
+ 三、避免过度绘制
+理想情况下，每个像素点应该只被绘制一次, 如果有多次绘制, 就是Overdraw, 过度绘制了.
+开发者选项---打开调试GPU过渡绘制
+Overdraw的分析处理：
+1、绘制了多重背景. 比如主题背景、Layout背景、View背景。
+当我们使用了Android自带的一些主题时，window会被默认添加一个纯色的背景，这个背景是被DecorView持有的。
+PhoneWindow.setBackgroundDrawable(drawable) --->DecorView.setBackgroundDrawable(drawable)
+当我们的自定义布局时又添加了一张背景图或者设置背景色，那么DecorView的background此时对我们来说是无用的，
+但是它会产生一次Overdraw，带来绘制性能损耗。
+去掉window的背景可以在onCreate()中setContentView()之后调用
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.xx);
+        getWindow().setBackgroundDrawable(null); //设置DecorView背景
+     }
+或者在theme中添加
+   android:windowbackground="null"
+
+2、绘制了不可见的UI元素.

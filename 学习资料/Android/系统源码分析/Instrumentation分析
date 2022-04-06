@@ -1,0 +1,67 @@
+
+----------------------Instrumentation
+1、负责创建Activity、Application
+newActivity(): 创建Activity
+newApplication(): 创建Application
+callApplicationOnCreate: 调用Application.onCreate()
+
+2、开启Activity
+execStartActivity :打开Activity
+
+3、Activity相关生命周期函数调用
+callActivityOnCreate：调用Activity的onCreate()方法
+callActivityOnDestroy: 调用Activity的onDestroy()
+
+public class  Instrumentation{
+
+    //创建Activity
+    public Activity newActivity(Class<?> clazz, Context context,
+            IBinder token, Application application, Intent intent, ActivityInfo info,
+            CharSequence title, Activity parent, String id,
+            Object lastNonConfigurationInstance)  {
+
+        //反射创建Activity对象
+        Activity activity = (Activity)clazz.newInstance();
+        //attach创建PhoneWindow等
+        activity.attach(context, aThread, this, token, 0, application, intent,
+                info, title, parent, id,
+                (Activity.NonConfigurationInstances)lastNonConfigurationInstance,
+                new Configuration(), null, null, null);
+        return activity;
+    }
+
+	//创建Application
+    static public Application newApplication(Class<?> clazz, Context context) {
+        Application app = (Application)clazz.newInstance();
+        app.attach(context);
+        return app;
+    }
+
+	//开启Activity
+    public ActivityResult execStartActivity(
+        Context who, IBinder contextThread, IBinder token, String target,
+        Intent intent, int requestCode, Bundle options) {
+
+           int result = ActivityManager.getService()
+                .startActivity(whoThread, who.getBasePackageName(), intent,
+                        intent.resolveTypeIfNeeded(who.getContentResolver()),
+                        token, target != null ? target.mEmbeddedID : null,
+                        requestCode, 0, null, options);
+
+            checkStartActivityResult(result, intent);
+
+        return null;
+    }
+
+     //activity生命周期调用
+    public void callActivityOnCreate(Activity activity, Bundle icicle) {
+        prePerformCreate(activity);
+        activity.performCreate(icicle); //->activity.onCreate(icicle)
+        postPerformCreate(activity);
+    }
+
+    public void callActivityOnResume(Activity activity) {
+        activity.mResumed = true;
+        activity.onResume();
+    }
+}

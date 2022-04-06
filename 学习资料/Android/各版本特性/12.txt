@@ -1,0 +1,25 @@
+
+1、android:exported
+设置为true 表示Activity、Receiver、Service、可由其他应用组件启动，否则只能由同一应用的组件或使用同一用户 ID 的不同应用启动。
+当targetSdkVersion=31，如果 Activity 、 Service 或  Receiver 使用 intent-filter ，并且未显式声明 android:exported 的值，App 将会无法安装
+
+2、SplashScreen
+Android 12 新增加了 SplashScreen 的 API，它包括启动时的进入应用的动作、显示应用的图标画面，以及展示应用本身的过渡效果。
+不管你的 TargetSDK 什么版本，当你运行到 Android 12 的手机上时，所有的 App 都会增加 SplashScreen 的功能
+如果你什么都不做，那 App 的 Launcher 图标会变成 SplashScreen 界面的那个图标，而对应的原主题下 windowBackground 属性指定的颜色，
+就会成为 SplashScreen 界面的背景颜色。
+
+而正常情况下我们可以做的就是：
+1、升级 compileSdkVersion 31 、 targetSdkVersion 31 & buildToolsVersion '31.0.0'
+2、 添加依赖 implementation "androidx.core:core-splashscreen:1.0.0-alpha02"
+3、增加 values-v31 的目录
+4、添加 styles.xml 对应的主题，例如：
+<resources>
+    <style name="LaunchTheme" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splashScreenBackground</item>
+        <!--<item name="windowSplashScreenAnimatedIcon">@drawable/splash</item>-->
+        <item name="windowSplashScreenAnimationDuration">500</item>
+        <item name="postSplashScreenTheme">@style/AppTheme</item>
+    </style>
+</resources>
+5、给你的启动 Activity 添加这个主题，不同目录下使用不同主题来达到适配效果。

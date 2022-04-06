@@ -1,0 +1,89 @@
+
+一、对于targetSdkVersion=30
+1、分区存储强制执行
+对外部存储目录的访问仅限于应用专属目录(exteranlFilesDir/externalCacheDir)，以及应用已创建的特定类型的媒体。
+关于分区存储，在Android10就已经推行了，简单的说，就是应用对于文件的读写只能在沙盒环境，也就是属于自己应用的目录里面读写。其他媒体文件可以通过MediaStore进行访问。
+在targetSdkVersion = 29应用中，设置android:requestLegacyExternalStorage=“true”，就可以不启动分区存储，让以前的文件读取正常使用。
+但是targetSdkVersion = 30中不行了，强制开启分区存储。
+可以增加android:preserveLegacyExternalStorage=“true”，暂时关闭分区存储，好让开发者完成数据迁移的工作。为什么是暂时呢？因为只要卸载重装，就会失效了。
+      fun saveFile() {
+        if (checkPermission()) {
+            //getExternalStoragePublicDirectory被弃用，分区存储开启后就不允许访问了
+            val filePath = Environment.getExternalStoragePublicDirectory("").toString() + "/test3.txt"
+            val fw = FileWriter(filePath)
+            fw.write("hello world")
+            fw.close()
+            showToast("文件写入成功")
+        }
+    }
+
+1） targetSdkVersion = 30，不删除应用，targetSdkVersion 由29修改到30，读写报错，程序崩溃（open failed: EACCES (Permission denied)）
+2） targetSdkVersion = 30，不删除应用，targetSdkVersion 由29修改到30，增加android:preserveLegacyExternalStorage=“true”，读写正常不报错
+3） targetSdkVersion = 30，删除应用，重新安装运行，读写报错，程序崩溃（open failed: EACCES (Permission denied)）
+
+推荐下面三种方法访问文件：
+1）应用专属目录
+内部储存目录：getFilesDir  getCacheDir
+外部储存目录：getExternalFilesDir getExternalCacheDir
+2）通过MediaStore访问公共媒体目录文件
+val cursor = contentResolver.query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, null, null, null, "${MediaStore.MediaColumns.DATE_ADDED} desc")
+if (cursor != null) {
+    while (cursor.moveToNext()) {
+        val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID))
+        val uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
+        println("image uri is $uri")
+    }
+    cursor.close()
+}
+3）SAF(存储访问框架–Storage Access Framework)
+    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT)
+    intent.addCategory(Intent.CATEGORY_OPENABLE)
+    intent.type = "image/*"
+    startActivityForResult(intent, 100)
+    @RequiresApi(Build.VERSION_CODES.KITKAT)
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (data == null || resultCode != Activity.RESULT_OK) return
+        if (requestCode == 100) {
+            val uri = data.data
+            println("image uri is $uri")
+        }
+    }
+2、MediaStore新增API
+为了在保证用户隐私的同时可以更轻松地访问媒体，Android 11 增加了以下功能。执行批量操作和使用直接文件路径和原生库访问文件。
+3、所有文件访问权限
+还有些应用就要访问所有文件，比如杀毒软件，文件管理器。MANAGE_EXTERNAL_STORAGE这个权限就是用来获取所有文件的管理权限
+<uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+     val intent = Intent()
+     intent.action= Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION
+     startActivity(intent)
+    //判断是否获取MANAGE_EXTERNAL_STORAGE权限：
+     val isHasStoragePermission= Environment.isExternalStorageManager()
+
+4、需要 APK 签名方案 v2
+如果你的targetSdkVersion=30，那么你就必须要加上v2或更高版本进行签名才行。否则无法安装和更新。
+5、后台位置信息访问权限
+在较低版本的Android系统中，当应用获得前台位置信息访问权限时，也会自动获得后台位置信息访问权限。
+比如 Manifest.permission.ACCESS_COARSE_LOCATION
+如果你的targetSdkVersion=30，必须单独申请后台位置权限，而且，要在获取前台权限之后，顺序还不能乱。
+Manifest.permission.ACCESS_BACKGROUND_LOCATION
+6、allowBackup属性
+对于targetSdkVersion=30，将无法再使用 allowBackup 属性停用应用文件的设备到设备迁移。系统会自动启用此功能。
+不过可以通过将 allowBackup 属性设置为 false 来停用应用文件的云端备份和恢复。
+也就是永远支持应用文件的设备到设备迁移，设置为false只能停用应用文件的云端备份。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

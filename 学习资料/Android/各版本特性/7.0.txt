@@ -1,0 +1,34 @@
+
+
+
+一、使用FileProvider在应用间共享文件
+对于面向 Android 7.0 的应用，Android 框架执行的 StrictMode API 政策禁止在您的应用外部公开 file:// URI。
+要在应用间共享文件，您应发送一项 content:// URI，并授予 URI 临时访问权限。
+进行此授权的最简单方式是使用 FileProvider 类。
+
+二、电池和内存
+Android 7.0 包括旨在延长设备电池寿命和减少 RAM 使用的系统行为变更
+
+1、更严格的低电耗模式
+Android 6.0（API 级别 23）引入了低电耗模式，当用户设备未插接电源、处于静止状态且屏幕关闭时，该模式会推迟 CPU 和网络活动，从而延长电池寿命。
+而 Android 7.0则进行了更严格的低电耗控制：
+当设备处于充电状态且屏幕已关闭一定时间后，设备会进入低电耗模式并应用第一部分限制：关闭应用网络访问、推迟作业和同步。
+如果进入低电耗模式后设备处于静止状态达到一定时间，系统则会对 PowerManager.WakeLock、AlarmManager、GPS 和 WLAN 扫描应用余下的低电耗模式限制。
+
+无论是应用部分还是全部低电耗模式限制，系统都会唤醒设备以提供简短的维护时间窗口，在此窗口期间，应用程序可以访问网络并执行任何被推迟的作业/同步。
+
+请注意，激活屏幕或插接设备电源时，系统将退出低电耗模式并移除这些处理限制。
+
+2、后台优化
+Android 7.0 移除了三项隐式广播，以帮助优化内存使用和电量消耗。
+1）CONNECTIVITY_ACTION 广播
+在 WLAN 和移动数据之间切换时。android7.0之后只能在前台注册广播监听，官方建议使用JobScheduler。
+2）ACTION_NEW_PICTURE 和 ACTION_NEW_VIDEO 广播。
+当用户使用相机应用拍摄照片时，这些应用即会被唤醒以处理广播。
+目前应用无法发送或接收ACTION_NEW_PICTURE 或 ACTION_NEW_VIDEO 广播。
+
+三、系统权限更改
+为了提高私有文件的安全性，面向 Android 7.0 或更高版本的应用私有目录被限制访问，
+1、私有文件的文件权限不应再由所有者放宽，为使用 MODE_WORLD_READABLE 和/或 MODE_WORLD_WRITEABLE 而进行的此类尝试将触发 SecurityException。　
+2、分享私有文件内容的推荐方法是使用 FileProvider。
+

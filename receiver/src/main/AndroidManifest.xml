@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.review.receiver">
+
+    <uses-permission android:name="com.zhangquanit.permission.act" />
+
+    <permission
+        android:name="com.review.receiver.permission"
+        android:label="自定义广播权限"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="com.review.receiver.permission" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+        <activity android:name=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <receiver android:name=".MyReceiver">
+            <intent-filter android:priority="10">
+                <action android:name="com.intent.action.test" />
+            </intent-filter>
+        </receiver>
+        <receiver android:name=".FirstRecever">
+            <intent-filter android:priority="9">
+                <action android:name="com.intent.action.test" />
+            </intent-filter>
+        </receiver>
+        <receiver android:name=".SecondRecever">
+            <intent-filter android:priority="8">
+                <action android:name="com.intent.action.test" />
+            </intent-filter>
+        </receiver>
+
+        <!--
+        隐式广播，8.0限制了隐私广播，建议使用JobScheduler代替。保留了部分系统隐式广播。
+        之前通过权限注册的隐式广播不受影响
+        -->
+        <receiver
+            android:name=".PermissionReceiver"
+            android:permission="com.review.receiver.permission"
+            >
+            <intent-filter>
+                <action android:name="com.intent.action.permission" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </receiver>
+
+        <receiver android:name=".TestReceiver" />
+
+
+    </application>
+
+</manifest>

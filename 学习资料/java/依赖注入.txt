@@ -1,0 +1,66 @@
+
+一、IOC：
+Inversion of Control 控制反转。不是什么技术，而是一种设计思想。
+传统应用程序都是由我们在类内部主动创建依赖对象，从而导致类与类之间高耦合，难于测试；
+有了IoC容器后，把创建和查找依赖对象的控制权交给了容器，由容器进行注入组合对象，所以对象与对象之间是 松散耦合
+二、DI
+Dependency Injection 依赖注入。
+依赖的对象通过外部注入，而非内部主动创建依赖对象。常见的注入方式有构造函数、set方法、服务查询等。
+
+----------直接依赖的方式
+public class Engine{
+
+  public void start(){
+
+  }
+}
+public class Car{
+
+   public void start(){
+        Engine  engine = new Engine(); //直接创建所依赖的对象，不好维护，也没法复用car(更换engine)。
+        engine.start();
+  }
+}
+
+public void test(){
+    Car car = new Car();
+    car.start();
+}
+
+----------依赖注入的方式
+依赖的对象通过外部注入，而非内部主动创建依赖对象。
+public  class Car{
+    private Engine engine = ServiceLocator.getInstance().getEngine()；//服务定位方式获取
+    public Car(Engine engine){ //通过构造函数注入需要的依赖对象
+        this.engine=engine;
+    }
+
+    public void setEngine(Engine engine){ //通过set方法注入
+        this.engine=engine;
+    }
+}
+
+public void test(){
+    Engine engine=new Engine() //由于engine是在外部注入的，可以动态替换不同的Engine对象
+    Car car = new Car(engine);
+    car.start();
+    或者
+    Car car = new Car();
+    car.setEngine(engine);
+    car.start();
+}
+
+######控制反转
+传统应用程序都是由我们在类内部主动创建依赖对象，从而导致类与类之间高耦合，难于测试；
+有了IoC容器后，把创建和查找依赖对象的控制权交给了容器，由容器进行注入组合对象，所以对象与对象之间是 松散耦合
+public class Car{
+   public void start(){
+        Engine  engine = new Engine(); //直接创建所依赖的对象，控制权在自己
+        engine.start();
+  }
+}
+
+
+Engine engine=new Engine() //由于engine是在外部注入的，engine对象实例的创建控制权在外部
+Car car = new Car(engine);
+car.start();

@@ -1,0 +1,492 @@
+
+按照Clean Architecture架构规范
+在Presenter与Respository之间加入一个Domain Layer。
+结构如下：
+View--->Presenter---DomainLayer[UserCase、BusinessLogic]---->DataLayer[Respository(内存级缓存、本地缓存、网络请求)]
+Domain Layer：负责所有的业务逻辑，定义UserCases或Interactors，代表了Presenter所有可能执行的动作。
+
+UserCase可作为所有模块的基类，具体的业务逻辑封装成独立的Task(继承于UserCase)
+各种业务逻辑Task的创建由Injection统一负责。
+
+UseCaseHandler负责执行UserCase，UserCaseHandler持有UseCaseScheduler，可控制线程的并发数，任务队列什么的。
+
+todo-mvp-clean的好处：
+1、增加了 Domain layer and use cases，避免Presenter中的重复代码，比如PresenterA中需要获取一个新闻列表，PresenterB中也需要获取新闻列表，
+这样PresenterA和PresenterB中就存在同样的获取新闻列表的代码。
+2、Use cases 定义了app需要的所有操作，可以被Presenter随意组合使用。
+3、use cases是在后台线程中执行的，采用的是命令模式，每个task就是一个命令，UseCaseHandler负责执行命令，UseCaseScheduler负责线程调度。
+   domain layer完全从Android SDK中解耦了
+   
+注意：
+1、Use cases运行在子线程中，不会阻塞UI主线程，这里是采用线程池实现的，当然也可以使用rxjava
+2、之前Respository是异步的，但是这里就没必要了，因为usecases本来就运行在子线程中的。
+3、clean架构推荐为View、domain、API Layers使用不同的model，但是这会造成很多重复类（很多时候都是没必要的），如果View models包含一些与View相关的字段，我们
+可以使用2个model，一个view model，一个domain model，然后提供一个mapper class来转换它们。   
+
+易测性：UseCases可独立进行测试
+
+
+---------UserCase
+public abstract class UseCase<Q extends UseCase.RequestValues, P extends UseCase.ResponseValue> {
+
+    private Q mRequestValues; //请求参数信息
+
+    private UseCaseCallback<P> mUseCaseCallback; //presenter的回调
+
+    public void setRequestValues(Q requestValues) {
+        mRequestValues = requestValues;
+    }
+
+    public Q getRequestValues() {
+        return mRequestValues;
+    }
+
+    public UseCaseCallback<P> getUseCaseCallback() {
+        return mUseCaseCallback;
+    }
+
+    public void setUseCaseCallback(UseCaseCallback<P> useCaseCallback) {
+        mUseCaseCallback = useCaseCallback;
+    }
+     //执行请求，由UserCaseHandler调用
+    void run() { 
+       executeUseCase(mRequestValues);
+    }
+      //具体请求由子类去实现
+    protected abstract void executeUseCase(Q requestValues);
+
+    /**
+     * 请求参数
+     */
+    public interface RequestValues {
+    }
+
+    /**
+     * 请求响应信息
+     */
+    public interface ResponseValue {
+    }
+
+    public interface UseCaseCallback<R> {
+        void onSuccess(R response);
+        void onError();
+    }
+}
+
+-------Action，继承UseCase
+public class GetTasks extends UseCase<GetTasks.RequestValues, GetTasks.ResponseValue> {
+
+    private final TasksRepository mTasksRepository; //持有Respository
+    private final FilterFactory mFilterFactory;
+
+    public GetTasks(@NonNull TasksRepository tasksRepository, @NonNull FilterFactory filterFactory) {
+        mTasksRepository = tasksRepository;
+        mFilterFactory = filterFactory;
+    }
+
+    @Override
+    protected void executeUseCase(final RequestValues values) {
+        if (values.isForceUpdate()) {
+            mTasksRepository.refreshTasks();
+        }
+         //异步获取数据
+        mTasksRepository.getTasks(new TasksDataSource.LoadTasksCallback() {
+            @Override
+            public void onTasksLoaded(List<Task> tasks) {
+                TasksFilterType currentFiltering = values.getCurrentFiltering();
+                TaskFilter taskFilter = mFilterFactory.create(currentFiltering);
+                 //过滤数据
+                List<Task> tasksFiltered = taskFilter.filter(tasks);
+				 //构造ResponseValue
+                ResponseValue responseValue = new ResponseValue(tasksFiltered);
+				 //回调给Presenter
+                getUseCaseCallback().onSuccess(responseValue);
+            }
+
+            @Override
+            public void onDataNotAvailable() {
+			    //回调给Presenter
+                getUseCaseCallback().onError();
+            }
+        });
+
+    }
+   //获取tasks的请求信息
+    public static final class RequestValues implements UseCase.RequestValues {
+
+        private final TasksFilterType mCurrentFiltering;
+        private final boolean mForceUpdate;
+
+        public RequestValues(boolean forceUpdate, @NonNull TasksFilterType currentFiltering) {
+            mForceUpdate = forceUpdate;
+            mCurrentFiltering =currentFiltering;
+        }
+
+        public boolean isForceUpdate() {
+            return mForceUpdate;
+        }
+
+        public TasksFilterType getCurrentFiltering() {
+            return mCurrentFiltering;
+        }
+    }
+    //获取tasks的响应信息
+    public static final class ResponseValue implements UseCase.ResponseValue {
+
+        private final List<Task> mTasks;
+
+        public ResponseValue(@NonNull List<Task> tasks) {
+            mTasks = tasks;
+        }
+
+        public List<Task> getTasks() {
+            return mTasks;
+        }
+    }
+}
+
+ ----------------线程调度器
+public class UseCaseThreadPoolScheduler implements UseCaseScheduler {
+
+    private final Handler mHandler = new Handler();
+
+    public static final int POOL_SIZE = 2;
+
+    public static final int MAX_POOL_SIZE = 4;
+
+    public static final int TIMEOUT = 30;
+
+    ThreadPoolExecutor mThreadPoolExecutor;
+
+    public UseCaseThreadPoolScheduler() {
+        mThreadPoolExecutor = new ThreadPoolExecutor(POOL_SIZE, MAX_POOL_SIZE, TIMEOUT,
+                TimeUnit.SECONDS, new ArrayBlockingQueue<Runnable>(POOL_SIZE));
+    }
+
+    @Override
+    public void execute(Runnable runnable) {
+        mThreadPoolExecutor.execute(runnable); //线程池去执行任务
+    }
+
+    @Override
+    public <V extends UseCase.ResponseValue> void notifyResponse(final V response,
+            final UseCase.UseCaseCallback<V> useCaseCallback) {
+        mHandler.post(new Runnable() { //post到主线程中
+            @Override
+            public void run() {
+                useCaseCallback.onSuccess(response);
+            }
+        });
+    }
+
+    @Override
+    public <V extends UseCase.ResponseValue> void onError(
+            final UseCase.UseCaseCallback<V> useCaseCallback) {
+        mHandler.post(new Runnable() { //post到主线程中
+            @Override
+            public void run() {
+                useCaseCallback.onError();
+            }
+        });
+    }
+
+}
+
+public class UseCaseHandler {
+
+    private static UseCaseHandler INSTANCE;
+
+    private final UseCaseScheduler mUseCaseScheduler; //线程调度器
+
+    public UseCaseHandler(UseCaseScheduler useCaseScheduler) {
+        mUseCaseScheduler = useCaseScheduler;
+    }
+
+    public <T extends UseCase.RequestValues, R extends UseCase.ResponseValue> void execute(
+            final UseCase<T, R> useCase, T values, UseCase.UseCaseCallback<R> callback) {
+        useCase.setRequestValues(values);
+        useCase.setUseCaseCallback(new UiCallbackWrapper(callback, this));
+
+		final WeakReference<UseCase<T, R>> weakUseCase = new WeakReference<>(useCase);//弱引用UseCase
+        mUseCaseScheduler.execute(new Runnable() {
+            @Override
+            public void run() {
+               UseCase<T, R> useCaseToExecute = weakUseCase.get();
+                if(useCaseToExecute != null) {
+                    useCase.run();
+                }
+            }
+        });
+    }
+
+    public <V extends UseCase.ResponseValue> void notifyResponse(final V response,
+            final UseCase.UseCaseCallback<V> useCaseCallback) {
+        mUseCaseScheduler.notifyResponse(response, useCaseCallback); //mUseCaseScheduler去完成回调
+    }
+
+    private <V extends UseCase.ResponseValue> void notifyError(
+            final UseCase.UseCaseCallback<V> useCaseCallback) {
+        mUseCaseScheduler.onError(useCaseCallback);//mUseCaseScheduler去完成回调
+    }
+
+    /**
+     * 由于任务是异步执行的，回调默认发生在子线程中，为了Presenter更新UI，需要保证回调发生在主线程中
+     * @param <V>
+     */
+    private static final class UiCallbackWrapper<V extends UseCase.ResponseValue> implements
+            UseCase.UseCaseCallback<V> {
+        private final UseCase.UseCaseCallback<V> mCallback;
+        private final UseCaseHandler mUseCaseHandler;
+
+        public UiCallbackWrapper(UseCase.UseCaseCallback<V> callback,
+                UseCaseHandler useCaseHandler) {
+            mCallback = callback;
+            mUseCaseHandler = useCaseHandler;
+        }
+
+        @Override
+        public void onSuccess(V response) {
+            mUseCaseHandler.notifyResponse(response, mCallback);
+        }
+
+        @Override
+        public void onError() {
+            mUseCaseHandler.notifyError(mCallback);
+        }
+    }
+
+    public static UseCaseHandler getInstance() {
+        if (INSTANCE == null) {
+            INSTANCE = new UseCaseHandler(new UseCaseThreadPoolScheduler());//使用线程池
+        }
+        return INSTANCE;
+    }
+}
+
+----------------------------------------------------------------------------------------------------
+
+基类
+public interface BaseView<T> {
+
+    void setPresenter(T presenter);//将presenter注入到View中
+
+}
+public interface BasePresenter {
+
+    void start();
+
+}
+public interface TasksContract {
+     //该模块的View
+    interface View extends BaseView<Presenter> {
+       ...........更新UI逻辑
+    }
+     //该模块的Presenter
+    interface Presenter extends BasePresenter {
+       ...........操作respository的api
+    }
+}
+
+1、UI
+-----Activity
+
+// 创建并添加Fragment
+TasksFragment tasksFragment = TasksFragment.newInstance();
+ActivityUtils.addFragmentToActivity(
+		getSupportFragmentManager(), tasksFragment, R.id.contentFrame);
+
+// 创建Presenter
+mTasksPresenter = new TasksPresenter(
+			Injection.provideUseCaseHandler(),
+			tasksFragment,
+			Injection.provideGetTasks(getApplicationContext()),
+			Injection.provideCompleteTasks(getApplicationContext()),
+			Injection.provideActivateTask(getApplicationContext()),
+			Injection.provideClearCompleteTasks(getApplicationContext())
+			);
+
+-----Fragment
+public class TasksFragment extends Fragment implements TasksContract.View {
+    private TasksContract.Presenter mPresenter;
+	
+	 @Override
+    public void onResume() {
+        super.onResume();
+        mPresenter.start(); //开始
+    }
+	
+    @Override
+    public void setPresenter(@NonNull TasksContract.Presenter presenter) {
+        mPresenter = presenter; //将presenter绑定到View中
+    }
+}	
+	
+2、Presenter
+执行各种action，得到View最终需要的bean(经过domain layer转换处理)
+public class TasksPresenter implements TasksContract.Presenter {
+
+
+    private final TasksContract.View mTasksView; //view
+    private final GetTasks mGetTasks;
+    private final CompleteTask mCompleteTask;
+    private final ActivateTask mActivateTask;
+    private final ClearCompleteTasks mClearCompleteTasks;
+
+	
+    private final UseCaseHandler mUseCaseHandler; //
+	
+    private boolean mFirstLoad = true;
+    public TasksPresenter(
+	        @NonNull UseCaseHandler useCaseHandler,
+            @NonNull TasksContract.View tasksView, 
+			@NonNull GetTasks getTasks,
+            @NonNull CompleteTask completeTask, 
+			@NonNull ActivateTask activateTask,
+            @NonNull ClearCompleteTasks clearCompleteTasks) {
+			
+        mUseCaseHandler = useCaseHandler;
+        mTasksView =tasksView;
+        mGetTasks = getTasks;
+        mCompleteTask = completeTask;
+        mActivateTask = activateTask;
+        mClearCompleteTasks = clearCompleteTasks;
+
+
+        mTasksView.setPresenter(this);
+    }
+	
+    private void loadTasks(boolean forceUpdate, final boolean showLoadingUI) {
+	 //封装请求参数
+	GetTasks.RequestValues requestValue = new GetTasks.RequestValues(forceUpdate,
+			mCurrentFiltering);
+     //执行查询请求
+	mUseCaseHandler.execute(mGetTasks, requestValue,
+			new UseCase.UseCaseCallback<GetTasks.ResponseValue>() {
+				@Override
+				public void onSuccess(GetTasks.ResponseValue response) {
+					List<Task> tasks = response.getTasks();//获取响应信息
+				
+					processTasks(tasks);
+				}
+
+				@Override
+				public void onError() {
+					
+				}
+			});
+    }
+	
+	 //执行activateTask
+    @Override
+    public void activateTask(@NonNull Task activeTask) {
+     
+        mUseCaseHandler.execute(mActivateTask, new ActivateTask.RequestValues(activeTask.getId()),
+                new UseCase.UseCaseCallback<ActivateTask.ResponseValue>() {
+                    @Override
+                    public void onSuccess(ActivateTask.ResponseValue response) {
+                        mTasksView.showTaskMarkedActive();
+                        loadTasks(false, false);
+                    }
+
+                    @Override
+                    public void onError() {
+                        mTasksView.showLoadingTasksError();
+                    }
+                });
+    }	
+	
+}	
+
+3、Respository数据 （同todo-mvp，数据模块不变）
+//定义接口
+public interface TasksDataSource {
+     //回调
+    interface GetTaskCallback {
+
+        void onTaskLoaded(Task task);
+
+        void onDataNotAvailable();
+    }
+
+    void getTasks(@NonNull LoadTasksCallback callback);
+
+}
+//本地缓存（数据库）实现接口
+public class TasksLocalDataSource implements TasksDataSource {
+    private static TasksLocalDataSource INSTANCE;
+    private TasksDbHelper mDbHelper;
+
+    private TasksLocalDataSource(@NonNull Context context) {
+        mDbHelper = new TasksDbHelper(context);
+    }
+    // 单列模式
+    public static TasksLocalDataSource getInstance(@NonNull Context context) {
+        if (INSTANCE == null) {
+            INSTANCE = new TasksLocalDataSource(context);
+        }
+        return INSTANCE;
+    }
+}
+//网络数据，实现相同的接口
+public class TasksRemoteDataSource implements TasksDataSource {
+
+    private static TasksRemoteDataSource INSTANCE;
+    private TasksRemoteDataSource() {}	
+	//单列模式
+    public static TasksRemoteDataSource getInstance() {
+        if (INSTANCE == null) {
+            INSTANCE = new TasksRemoteDataSource();
+        }
+        return INSTANCE;
+    }
+}
+   
+//Respository，实现相同数据操作接口
+public class TasksRepository implements TasksDataSource {
+
+    private static TasksRepository INSTANCE = null;
+    private final TasksDataSource mTasksRemoteDataSource;//网络数据
+    private final TasksDataSource mTasksLocalDataSource; //本地缓存
+
+    /**
+     * 内存级缓存数据
+     */
+    Map<String, Task> mCachedTasks;
+
+    /**
+     * true表示缓存已失效  需要从网络更新
+     */
+    boolean mCacheIsDirty = false;
+
+    private TasksRepository(@NonNull TasksDataSource tasksRemoteDataSource,
+                            @NonNull TasksDataSource tasksLocalDataSource) {
+        mTasksRemoteDataSource = checkNotNull(tasksRemoteDataSource);
+        mTasksLocalDataSource = checkNotNull(tasksLocalDataSource);
+    }
+	 //单列模式
+	public static TasksRepository getInstance(TasksDataSource tasksRemoteDataSource,
+										  TasksDataSource tasksLocalDataSource) {
+	if (INSTANCE == null) {
+		INSTANCE = new TasksRepository(tasksRemoteDataSource, tasksLocalDataSource);
+	}
+	return INSTANCE;
+   }
+ }  
+
+获取数据：先从内存级缓存中获取，然后从本地缓存中获取，最后才从网络获取
+删除数据：删除内存级、本地、网络中的数据。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

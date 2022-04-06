@@ -1,0 +1,29 @@
+
+demo：layout_optimize
+
+merge标签相当于是起了一个包裹的作用，它的全部属性取决于他的父容器，所以merge中设置属性是不起作用的，比如宽高和背景色。
+  如果想放到一个父容器是RelativeLayout ，就可以按照父容器是RelativeLayout进行布局
+
+merge标签主要是为了减少一个层级，如果activity的根布局是FrameLayout，就可以使用merge标签，因为content节点就是一个FrameLayout
+    <?xml version="1.0" encoding="utf-8"?>
+    <merge xmlns:android="http://schemas.android.com/apk/res/android">
+        <FrameLayout
+            android:id="@+id/contentbar"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginBottom="50dp"
+            android:background="#ECE6E6" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_gravity="bottom"
+            android:background="#00BCD4"
+            android:orientation="horizontal" />
+    </merge>
+
+另外有两点需要特别注意：
+1、<merge />只可以作为xml layout的根节点。
+2、通过inflate渲染，必须指定放置的父容器viewGroup，并且设置attachToRoot为true。
+  LayoutInflater.from(this).inflate(R.layout.include_item,container,true)
+

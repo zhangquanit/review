@@ -1,0 +1,46 @@
+
+线程池核心线程数是如何保活的？
+正常情况下，线程执行完任务后就结束了，线程池的核心线程数是如何保活的呢
+
+    public void execute(Runnable command) {
+        if (workerCountOf(c) < corePoolSize) {
+            if (addWorker(command, true))
+                return;
+            c = ctl.get();
+        }
+    }
+
+    private boolean addWorker(Runnable firstTask, boolean core) {
+       Worker  w = new Worker(firstTask);
+       final Thread t = w.thread;
+       t.start(); //开启线程 执行任务
+    }
+
+    //一个Worker就创建了1条线程，不停从任务队列中获取任务来执行
+    private final class Worker
+        extends AbstractQueuedSynchronizer
+        implements Runnable
+    {
+        Worker(Runnable firstTask) {
+            this.firstTask = firstTask;
+            this.thread = getThreadFactory().newThread(this); //创建线程
+        }
+        public void run() {
+            runWorker(this);
+        }
+        final void runWorker(Worker w) {
+            //当前线程不停从任务队列中获取任务执行
+            while (task != null || (task = getTask()) != null) { //不停获取任务执行 没有任务就会结束
+                  task.run();
+            }
+        }
+    private Runnable getTask() { //获取任务
+        for (;;) { //死循环
+            boolean timed = allowCoreThreadTimeOut || wc > corePoolSize; //允许核心线程超时 或 线程数>核心线程数
+            Runnable r = timed ?
+                workQueue.poll(keepAliveTime, TimeUnit.NANOSECONDS) :
+                workQueue.take(); //获取不到任务就阻塞
+            if (r != null)
+                return r;
+        }
+    }

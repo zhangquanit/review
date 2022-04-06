@@ -1,0 +1,218 @@
+appleID：zhangquanit@126.com zhang196804A
+
+
+按键说明：
+苹果键⌘:command, ⌃:ctrl, ⇧:shift, ⌥:alt/option, ⏎:enter/return
+
+############常用快捷键################
+F11:快速回到桌面
+cmd+C：拷贝  cmd+V：粘贴 
+cmd+W：关闭窗口   cmd+Q：退出当前程序     
+cmd+I：显示文件/文件夹属性     cmd+delete：删除        
+cmd+F：在应用程序中搜索    cmd+Space：用Spotlight进行桌面搜索
+cmd+shift+G 快速进入某个文件夹（有时候知道了某个文件路径 想快速进入）
+cmd+alt+C 选中文件，可复制文件路径
+cmd+~ 同一个应用多个窗口间相互切换
+cmd+tab 不同应用之间切换
+cmd+z:撤销
+cmd+shift+z:反撤销，撤销的逆向操作　　
+如何剪切文件？
+首先选中文件，按cmd+C复制文件，然后cmd+alt+V 就可以把文件剪走了。
+
+全屏截图：Command-Shift-3
+指定区域截图：Command-Shift-4
+
+open -a TextEdit 通过命令快速打开<文本编辑器>
+查看IP地址：ifconfig | grep "inet " | grep -v 127.0.0.1
+
+
+
+二、配置环境变量
+添加环境变量
+export PATH="$PATH:/jdk//bin"
+如果在命令窗口添加的，则关闭窗口后失效。
+如果修改profile文件，则可以永久生效。
+
+
+
+1、对所有用户生效 /etc/profile
+
+export M2_HOME=/Users/zhangquan/Applications/apache-maven-3.5.0
+export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0_131.jdk/Contents/Home
+PATH=/usr/local/bin:/usr/local/sbin:~/bin:$PATH:$M2_HOME/bin:$JAVA_HOME/bin
+export PATH
+
+使用以下命令可以使配置文件立刻生效
+source /etc/profile
+
+打印
+echo $PATH
+
+
+2、如果只对当前用户生效 /User/<用户名>/.bash_profile
+如果不存在，可以创建一个，比如touch .bash_profile
+存在则直接打开 open .bash_profile
+
+export M2_HOME=/Users/zhangquan/Applications/apache-maven-3.5.0
+export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0_131.jdk/Contents/Home
+PATH=/usr/local/bin:/usr/local/sbin:~/bin:$PATH:$M2_HOME/bin:$JAVA_HOME/bin
+export PATH
+
+使用以下命令可以使配置文件立刻生效
+source .bash_profile
+
+打印
+echo $PATH
+
+3、查询环境变量
+在命令行输入 env
+
+三、强制退出
+cmd+alt+Esc来打开“强制退出应用程序”的窗口，然后选中你需要退出的程序，再点右下方的“强制退出”即可
+
+四、显示/User目录下的Library目录
+在Mac OS 中Library文件夹是默认不显示的，这对普通用户来说是有好处的可以防止用户误操作删除Library文件夹，但对于iOS的开发者来说是非常麻烦的。
+1、在终端执行下面的命令即可
+chflags nohidden ~/Library/
+2、如果想隐藏，则执行下面的命令
+chflags hidden ~/Library
+
+四、显示隐藏的文件
+defaults write com.apple.finder AppleShowAllFiles Yes && killall Finder //显示隐藏文件
+defaults write com.apple.finder AppleShowAllFiles No && killall Finder //不显示隐藏文件
+
+五、在某个文件夹下直接打开终端窗口
+Finder———服务———服务偏好设置
+点击弹出的服务偏好设置窗口中的“服务”并勾选“新建位于文件夹位置的终端窗口”；点击该项还可以为该操作设置快捷键。
+关闭设置窗口后右键单击文件夹，点击弹出的菜单中的“服务”菜单项弹出子菜单，选择其中的“新建位于文件夹位置的终端窗口”菜单项就会打开终端，并且终端的当前工作目录就是文件夹的路径。一定要点中文件夹，右击空白地方弹出的右键菜单是不会有“服务”项的。
+
+六、如何打开多个终端窗口
+在先打开了一个终端应用的基础上，再按下键盘上的【command+n】组合键，便可以重新打开一个新的终端应用。
+
+七、显示当前文件路径
+1、在顶部显示路径(但是不能复制)
+defaults write com.apple.finder _FXShowPosixPathInTitle -bool YES
+就能在顶部看见完整的地址了
+2、打开 terminal，把文件拖进terminal 窗口，自动显示路径
+3、在finder里，对选中的文件，command+option+c，就复制到剪贴板了。
+
+九、mac键盘如何开启 F1-F12 功能键？
+默认是没有开启F1-F12的使用的，开发人员往往需要使用F键的功能，修改如下：
+系统偏好设置——>键盘——>将F1、F2等键用作标准功能键
+
+十、mac文件夹中英文显示
+英文-中文：在文件夹下创建.localized 文件。
+中文-英文：在文件夹下删除.localized 文件。
+
+十一、完全卸载Intellij Idea
+Config: ~/Library/Preferences/IdeaIC13
+System: ~/Library/Caches/IdeaIC13
+Plugins: ~/Library/Application Support/IdeaIC13
+Logs: ~/Library/Logs/IdeaIC13
+删除对应文件夹即可
+
+十二、一键锁屏
+1、先前往应用程序
+2、找到实用工具
+3、打开钥匙串访问
+4、选择偏好设置
+5、把这个在菜单栏中显示钥匙串状态☑️上
+6、就可以看到，在菜单栏有个小锁的图标了
+7、点开就可以一键锁屏啦～
+
+十三、在mac中执行shell脚本
+在脚本目录下执行：./{脚本}
+
+十四、常用快捷键
+1、怎样才能快速选择你想要的软件呢？
+我们在键盘上选择control + 空格
+
+十五、
+“Mac应用”已损坏，打不开解决办法
+原因：Mac电脑启用了安全机制，默认只信任Mac App Store下载的软件以及拥有开发者 ID 签名的软件，但是同时也阻止了没有开发者签名的 “老实软件”
+1、macOS Mojave 10.14及以下系统：
+sudo spctl --master-disable
+2、macOS Catalina 10.15系统：
+sudo xattr -rd com.apple.quarantine 空格 软件的路径
+比如：sudo xattr -rd com.apple.quarantine /Applications/Sketch.app
+
+
+
+———git
+查看全局配置
+git config -l
+
+mianli.zq@antfin.com
+
+
+ssh-keygen -t rsa -f ~/.ssh/id_rsa_github -C zhangquanit@126.com
+
+ssh-keygen -t rsa -f ~/.ssh/id_rsa_alipay_social -C mianli.zq@antfin.com
+
+$ git config --global user.name "mianli.zq"  
+$ git config --global user.email "mianli.zq@antfin.com"
+
+
+//---------------------配置多个账号
+参考：http://blog.csdn.net/chaihuasong/article/details/37886139
+
+1.生成SSH
+ssh-keygen -t rsa -C zhangquanit@126.com
+
+Generating public/private rsa key pair.
+Enter file in which to save the key (/c/Users/zhangquan/.ssh/id_rsa): /c/Users/zhangquan/.ssh/id_rsa_github
+注意：指定私钥文件名id_rsa_github
+
+或者
+在新增私钥的时候，通过指定不同的文件名来生成不同的私钥文件
+ssh-keygen -t rsa -f ~/.ssh/id_rsa_github -C zhangquanit@126.com  
+
+
+ssh-keygen -t rsa -f ~/.ssh/id_rsa_coding -C zhangquanit@126.com
+
+2.新增ssh的配置文件，修改config文件的内容
+Host github.com                 
+HostName github.com
+IdentityFile /Users/zhangquan/.ssh/id_rsa_github
+User zhangquan
+
+
+3、判断是否生效
+ssh -T git@github.com
+
+
+---------- git合并多次提交为一次提交
+一、拉取新的分支，使用squash命令
+1、拉取新的分支，正常开发提交
+2、开发完成后，合并到目标分支
+git merge --squash [branch name]
+将新创建分支的代码全部合并过来，这个时候只是进行了代码的合并，并没有实际commit
+git commit -m "message"
+然后进行提交
+git push origin HEAD:当前分支
+比如 git push origin HEAD:feature/test1
+
+二、使用git rebase命令
+1)git rebase -i HEAD~4
+4表示要合并最后4次提交
+2)修改除第一个pick之外的pick为s，然后：wq
+
+如果出现冲突，进行修改，修改完后输入以下命令：
+git add .
+git rebase --continue
+若想退出本次压缩，执行命令：
+git rebase --abort
+
+3）然后删除之前的commit写个新的，再wq
+在第一行，按下d，然后按下shift+G进入编辑框，输入commit信息，保存退出。
+4）git push --force origin HEAD:remote分支
+
+比如 git push --force origin HEAD:feature/v2_note
+
+
+3、回退到某个历史提交
+回退 git reset --hard <commitid>
+提交 git push origin HEAD --force 
+
+
+

@@ -1,0 +1,233 @@
+http://blog.csdn.net/l2show/article/details/53454933
+
+ContextImp在构造函数中加载Resource ---》LoadedApk.getResources
+   --》ActivityThread.getTopLevelResources-->ResourcesManager.getResource
+
+资源补丁加载流程：
+1、反射拿到ActivityThread对象持有的LoadedApk容器
+因为ActivityThread有个静态方法获得对象，可以以这个作为突破口
+    public static ActivityThread currentActivityThread() {
+        return sCurrentActivityThread;
+    }
+    final ArrayMap<String, WeakReference<LoadedApk>> mPackages
+            = new ArrayMap<String, WeakReference<LoadedApk>>();
+    final ArrayMap<String, WeakReference<LoadedApk>> mResourcePackages
+            = new ArrayMap<String, WeakReference<LoadedApk>>();
+2、遍历容器中LoadedApk对象,反射替换mResDir属性为补丁物理路径.
+  遍历mPackages和mResourcePackages，替换LoadApk对象中的mResDir路径为补丁物理路径
+
+3、创建新的AssetManager, 并根据补丁路径反射调用addAssetPath将补丁加载到新的AssetManager中.
+    String apkPath="";
+    AssetManager assetManager = AssetManager.class.newInstance();
+    AssetManager.class.getDeclaredMethod("addAssetPath", String.class).invoke(
+            assetManager, apkPath);
+     //4.4需要调用assetManager.ensureStringBlocks(),其他版本调用了也无影响
+    ensureStringBlocksMethod = AssetManager.class.getDeclaredMethod("ensureStringBlocks");
+    ensureStringBlocksMethod.setAccessible(true);
+    ensureStringBlocksMethod.invoke(assetManager);
+
+4、反射获得ResourcesManager持有的Resources容器对象.
+ private final ArrayList<WeakReference<Resources>> mResourceReferences = new ArrayList<>();
+
+5、遍历Resources容器, 将每个Resources对象中引用的AssetManager替换成加载过补丁资源的新的AssetManager对象.
+注意从Android N开始 Resources和AssetManager之间变成了间接引用Resources -> ResourcesImpl -> AssetManager
+替换过AssetManager对象之后再重新反射调用updateConfiguration,将Resources对象的配置信息更新到最新状态.
+public class Resources {
+    private ResourcesImpl mResourcesImpl; //AssetManager保存到ResourceImpl中的。
+}
+首先拿到Resource中的mResourceImpl，然后替换ResourceImpl中的mAssets值为新创建的AssetManager
+
+
+-------------------ContextImpl
+在构造上述中通过LoadApk创建Resource
+    private ContextImpl(ContextImpl container, ActivityThread mainThread,
+            LoadedApk packageInfo, IBinder activityToken, UserHandle user, int flags,
+            Display display, Configuration overrideConfiguration, int createDisplayWithId) {
+        mOuterContext = this;
+        mMainThread = mainThread;
+        mActivityToken = activityToken;
+        mFlags = flags;
+
+        if (user == null) {
+            user = Process.myUserHandle();
+        }
+        mUser = user;
+
+        mPackageInfo = packageInfo;
+        mResourcesManager = ResourcesManager.getInstance();
+         //获取Resources
+        Resources resources = packageInfo.getResources(mainThread);
+        if (resources != null) {
+            if (displayId != Display.DEFAULT_DISPLAY
+                    || overrideConfiguration != null
+                    || (compatInfo != null && compatInfo.applicationScale
+                            != resources.getCompatibilityInfo().applicationScale)) {
+
+                if (container != null) {
+                    resources = mResourcesManager.getResources(
+                            activityToken,
+                            packageInfo.getResDir(),
+                            packageInfo.getSplitResDirs(),
+                            packageInfo.getOverlayDirs(),
+                            packageInfo.getApplicationInfo().sharedLibraryFiles,
+                            displayId,
+                            overrideConfiguration,
+                            compatInfo,
+                            packageInfo.getClassLoader());
+                } else {
+                    // This is not a nested Context, so it must be the root Activity context.
+                    // All other nested Contexts will inherit the configuration set here.
+                    resources = mResourcesManager.createBaseActivityResources(
+                            activityToken,
+                            packageInfo.getResDir(),
+                            packageInfo.getSplitResDirs(),
+                            packageInfo.getOverlayDirs(),
+                            packageInfo.getApplicationInfo().sharedLibraryFiles,
+                            displayId,
+                            overrideConfiguration,
+                            compatInfo,
+                            packageInfo.getClassLoader());
+                }
+            }
+        }
+        mResources = resources;
+    }
+
+    @Override
+    public AssetManager getAssets() {
+        return getResources().getAssets();
+    }
+
+    @Override
+    public Resources getResources() {
+        return mResources;
+    }
+
+
+-------------------LoadedApk
+使用ActiviyThread创建Resource
+    public Resources getResources(ActivityThread mainThread) {
+        if (mResources == null) {
+            mResources = mainThread.getTopLevelResources(mResDir, mSplitResDirs, mOverlayDirs,
+                    mApplicationInfo.sharedLibraryFiles, Display.DEFAULT_DISPLAY, this);
+        }
+        return mResources;
+    }
+-------------------ActivityThread
+通过ResourceManager加载Resource
+    final ArrayMap<String, WeakReference<LoadedApk>> mPackages
+            = new ArrayMap<String, WeakReference<LoadedApk>>(); //App加载过的LoadedApk对象
+    final ArrayMap<String, WeakReference<LoadedApk>> mResourcePackages
+            = new ArrayMap<String, WeakReference<LoadedApk>>(); //App加载过的LoadedApk对象
+    //加载Resource
+    Resources getTopLevelResources(String resDir, String[] splitResDirs, String[] overlayDirs,
+            String[] libDirs, int displayId, LoadedApk pkgInfo) {
+        return mResourcesManager.getResources(null, resDir, splitResDirs, overlayDirs, libDirs,
+                displayId, null, pkgInfo.getCompatibilityInfo(), pkgInfo.getClassLoader());
+    }
+-------------------ResourcesManager
+ private final ArrayMap<ResourcesKey, WeakReference<ResourcesImpl>> mResourceImpls =
+            new ArrayMap<>(); //资源路径----ResourceImpl
+ private final ArrayList<WeakReference<Resources>> mResourceReferences = new ArrayList<>(); //Resource缓存
+
+ 注意的是：
+
+1、ResourceKey:由于要确保每个apk的资源访问对应一个Resources对象,这里通过ResourcesKey来绑定唯一标识.
+ResourcesKey则通过apk的路径,设备的配置和兼容信息构造出来的.当从两个不同的apk文件中加载资源时会产生出两个ResourcesKey对应两个Resources.
+        final ResourcesKey key = new ResourcesKey(
+                resDir,
+                splitResDirs,
+                overlayDirs,
+                libDirs,
+                displayId,
+                overrideConfig != null ? new Configuration(overrideConfig) : null, // Copy
+                compatInfo);
+
+2、根据ResourceKey获取ResourceImpl
+   首先从缓存中获取
+       ResourcesKey  key=new ResourceKey(mResDir,................);
+       ResourcesImpl resourcesImpl=null;
+       WeakReference<ResourcesImpl> weakImplRef = mResourceImpls.get(key);
+        ResourcesImpl impl = weakImplRef != null ? weakImplRef.get() : null;
+        if (impl != null && impl.getAssets().isUpToDate()) {
+            resourcesImpl= impl;
+        }
+     if (resourcesImpl != null) {
+         //查询或创建Resource
+     }
+
+     【创建ResourceImpl】
+
+3、创建ResourceImpl
+     //1、创建AssetManager
+     AssetManager assets = new AssetManager();
+     assets.addAssetPath(mResDir)；
+
+     //2、创建ResourceImpl，并缓存起来
+     final DisplayMetrics dm = getDisplayMetrics(key.mDisplayId, daj);
+     final Configuration config = generateConfig(key, dm);
+     final ResourcesImpl impl = new ResourcesImpl(assets, dm, config, daj);
+     mResourceImpls.put(key, new WeakReference<>(impl));
+
+      【创建Resource】
+
+4、Resource创建流程
+//----------------------activityToken==null ----------------------------
+     //从缓存中查询
+    final int refCount = mResourceReferences.size();
+    for (int i = 0; i < refCount; i++) {
+        WeakReference<Resources> weakResourceRef = mResourceReferences.get(i);
+        Resources resources = weakResourceRef.get();
+        if (resources != null &&
+                Objects.equals(resources.getClassLoader(), classLoader) &&
+                resources.getImpl() == impl) {
+            return resources;
+        }
+    }
+
+    //创建Resource 并缓存
+    Resources resources = new Resources(classLoader);
+    resources.setImpl(impl);
+    mResourceReferences.add(new WeakReference<>(resources)); //缓存
+
+
+//----------------------activityToken！=null ----------------------------
+     final ActivityResources activityResources = getOrCreateActivityResourcesStructLocked(
+                activityToken); //创建或获取ActivityResources
+
+     //3、从activityResources缓存中获取Resource
+    final int refCount = activityResources.activityResources.size();
+    for (int i = 0; i < refCount; i++) {
+        //拿到缓存的Resource
+        WeakReference<Resources> weakResourceRef = activityResources.activityResources.get(i);
+        Resources resources = weakResourceRef.get();
+
+        if (resources != null
+                && Objects.equals(resources.getClassLoader(), classLoader)
+                && resources.getImpl() == impl) {
+            //加载的classLoader一致，ResourceImpl一致
+            return resources;
+        }
+    }
+
+    //4、创建Resource，并缓存
+    Resources resources = new Resources(classLoader);
+    resources.setImpl(impl);
+    activityResources.activityResources.add(new WeakReference<>(resources)); //缓存Resources
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

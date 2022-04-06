@@ -1,0 +1,167 @@
+Handler: 发送消息 处理回调
+Looper: 用于循环取出消息进行处理
+MessageQueue:消息队列
+Message: 发送消息和处理消息
+
+具体处理流程如下：
+public class Handler{
+	final MessageQueue mQueue; //当handler发送消息时，将消息放入MessageQueue队列中
+	final Looper mLooper; //用于循环处理Message
+	final Callback mCallback; //回调函数
+	public Handler(Looper looper) {
+			this(looper, null, false);
+		}
+	public Handler(Looper looper, Callback callback, boolean async) {
+			mLooper = looper;
+			mQueue = looper.mQueue;
+			mCallback = callback;
+			mAsynchronous = async;
+		}
+	//Looper循环处理MessageQueue中的Message，然后调用
+	public void dispatchMessage(Message msg) {
+			if (msg.callback != null) {//通过post(Runnable)发送的消息
+				handleCallback(msg);
+			} else {
+				if (mCallback != null) { //首先判断回调函数
+					if (mCallback.handleMessage(msg)) {
+						return;
+					}
+				}
+				handleMessage(msg);
+			}
+		}
+	public void handleMessage(Message msg) {
+	   //由子类实现
+	}
+
+	// postXXX
+	public final boolean post(Runnable r)
+    {
+	    Message m = Message.obtain();
+        m.callback = r; //将runnable赋值给msg.callback
+       return  sendMessageDelayed(m, 0);
+    }
+	//sendXX
+	public final boolean sendEmptyMessage(int what)
+    {
+	    Message msg = Message.obtain();
+        msg.what = what;
+        return sendMessageDelayed(msg, delayMillis);
+    }
+	//封装好Message后，通过MessageQueue压入队列中
+	private boolean enqueueMessage(MessageQueue queue, Message msg, long uptimeMillis) {
+        msg.target = this;
+        if (mAsynchronous) {
+            msg.setAsynchronous(true);
+        }
+        return queue.enqueueMessage(msg, uptimeMillis);
+    }
+
+}
+
+public class Looper{
+    static final ThreadLocal<Looper> sThreadLocal = new ThreadLocal<Looper>();//线程范围内共享
+	final MessageQueue mQueue;
+
+	private Looper(boolean quitAllowed) {
+        mQueue = new MessageQueue(quitAllowed);//创建一个Looper会创建一个MessageQueue
+        mThread = Thread.currentThread();
+    }
+
+	public static void prepare() {//创建一个Looper
+			prepare(true);
+		}
+
+	private static void prepare(boolean quitAllowed) {
+		if (sThreadLocal.get() != null) {
+			throw new RuntimeException("Only one Looper may be created per thread");
+		}
+		sThreadLocal.set(new Looper(quitAllowed));
+	}
+	public static Looper myLooper() {
+		return sThreadLocal.get(); //拿到当前线程中创建的Looper
+	}
+
+public static void loop() {
+	//获取当前线程中的Looper
+	final Looper me = myLooper();
+	final MessageQueue queue = me.mQueue; //一个Looper中会有一个MessageQueue
+	 for (;;) {
+            Message msg = queue.next(); // might block
+			msg.target.dispatchMessage(msg); //调用msg中保存的handler.dispatchMessage(msg)
+		}
+     }
+
+}
+
+
+-------------------------
+public static void loop() {
+        final Looper me = myLooper();
+        final MessageQueue queue = me.mQueue;
+        for (;;) {
+            Message msg = queue.next(); // might block
+        }
+}
+
+-----------------------
+    Message next() {
+        int pendingIdleHandlerCount = -1; // -1 only during first iteration
+        int nextPollTimeoutMillis = 0;
+        for (;;) {
+            //这里陷入沉睡, 等待唤醒
+            nativePollOnce(ptr, nextPollTimeoutMillis);
+                if (msg != null) {
+                    if (now < msg.when) {
+                        nextPollTimeoutMillis = (int) Math.min(msg.when - now, Integer.MAX_VALUE);
+                    } else {
+
+                    }
+                }else{
+                      nextPollTimeoutMillis = -1;
+                }
+
+    }
+    boolean enqueueMessage(Message msg, long when) {
+        synchronized (this) {
+            msg.markInUse();
+            msg.when = when;
+            Message p = mMessages;
+            boolean needWake;
+
+            .....存入消息队列
+
+            //这里唤醒 nativePollOnce 的沉睡
+            if (needWake) {
+                nativeWake(mPtr);
+            }
+        }
+    }
+
+
+1、为什么这个死循环不会造成ANR异常呢？
+如果主线程中进行耗时操作会引发ANR
+造成ANR的原因一般有两种：
+当前的事件没有机会得到处理（即主线程正在处理前一个事件，没有及时的完成或者looper被某种原因阻塞住了）
+当前的事件正在处理，但没有及时完成
+
+因为Android 的是由事件驱动的，looper.loop() 不断地接收事件、处理事件，每一个点击触摸或者说Activity的生命周期都是运行在 Looper.loop()
+的控制之下，如果它停止了，应用也就停止了。只能是某一个消息或者说对消息的处理阻塞了 Looper.loop().
+当MessageQueue中没有消息时，主线程阻塞，子线程往消息队列发送消息或者用户操作屏幕(比如触摸事件)，并且往管道文件写数据，主线程即被唤醒，
+从管道文件读取数据，主线程被唤醒只是为了读取消息，当消息读取完毕，再次睡眠。因此loop的循环并不会对CPU性能有过多的消耗。
+
+nativePollOnce： 它只是表明所有消息的处理已完成, 线程正在等待下一个消息.
+nativePollOnce将一直阻塞直到添加新消息为止，当将 Message 添加到队列时, 框架调用 enqueueMessage 方法, 该方法不仅将消息插入队列,
+而且还会调用nativeWake，MessageQueue 利用名为 epoll 的 Linux 系统调用, 该系统调用可以监视文件描述符中的 IO 事件.
+nativePollOnce 在某个文件描述符上调用 epoll_wait, 而 nativeWake 写入一个 IO 操作到描述符,
+然后, 内核从等待状态中取出 epoll 等待线程, 并且该线程继续处理新消息.
+
+
+2、Print打印日志
+    Looper mainLooper = Looper.getMainLooper();
+    mainLooper.setMessageLogging(new Printer() {
+        @Override
+        public void println(String x) {
+            System.out.println(x);
+        }
+    });

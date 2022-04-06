@@ -1,0 +1,271 @@
+参考
+http://blog.csdn.net/lmj623565791/article/details/37970961
+http://blog.csdn.net/lmj623565791/article/details/37992017
+
+1、生命周期
+onAttach...onCreate...onCreateView..onViewCreated...onActivityCreated..onStart..onResume..onPause..onStop..onDestroyView..onDestroy..onDetach
+
+activity--onCreate
+onAttach--LifeCycleFragment{19b2e9c #0 LifeCycleFragment}
+onCreate--LifeCycleFragment{19b2e9c #0 LifeCycleFragment}
+onCreateView--LifeCycleFragment{19b2e9c #0 LifeCycleFragment}
+onActivityCreated--LifeCycleFragment{19b2e9c #0 LifeCycleFragment}
+onStart--LifeCycleFragment{19b2e9c #0 LifeCycleFragment}
+activity--onStart
+activity--onResume
+onResume--LifeCycleFragment{19b2e9c #0 LifeCycleFragment}
+onPause--LifeCycleFragment{19b2e9c #0 LifeCycleFragment}
+activity--onPause
+onStop--LifeCycleFragment{19b2e9c #0 LifeCycleFragment}
+activity--onStop
+onDestroyView--LifeCycleFragment{19b2e9c #0 LifeCycleFragment}
+onDestroy--LifeCycleFragment{19b2e9c #0 LifeCycleFragment}
+onDetach--LifeCycleFragment{19b2e9c #0 LifeCycleFragment}
+activity--onDestroy
+
+2、通过FragmentManager在代码中添加和在xml中使用<fragment name="">标签添加
+3、在Fragment中直接使用startActivityForResult();
+不能使用getActivity().startActivityForResult();
+4、Activity多个Fragment之间的通讯和资源访问
+多个Fragmnet之间可以通过接口通讯，让Activity实现接口，
+然后在Fragment中
+    InterfaceXX xx=(InterfaceXX)getActivity();
+FragmentA可以通过getActivity().findViewyById(R.id.xx)拿到其他Fragment界面中的控件id
+
+5、Fragment 重叠问题
+当内存不足的时候，activity会被销毁并重新创建，并且在销毁之前执行了onSaveInstanceState(Bundle outState)这个方法。
+这个方法会保存activity的一些信息，其中就包括添加过的fragment，当activity重新创建时，之前所添加过的fragment也会被重新创建，而且是默认显示的。
+如果在onCreate()中又重新创建添加新的Fragment，就会导致重叠问题。
+解决的办法：
+1）想办法不让activity保存信息。（不推荐）
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        L.i("MainActivity onSaveInstanceState");
+        //super.onSaveInstanceState(outState);
+    }
+2）在onSaveInstanceState(outState);中去保存fragment，当activity被恢复时，取出这些fragment即可。
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        L.i("MainActivity  onCreate");
+        initView();
+
+
+        if (savedInstanceState != null) {
+            /*获取保存的fragment  没有的话返回null*/
+            homeFragment = (HomeFragment) getSupportFragmentManager().getFragment(savedInstanceState, HOME_FRAGMENT_KEY);
+            dashboardFragment = (DashboardFragment) getSupportFragmentManager().getFragment(savedInstanceState, DASHBOARD_FRAGMENT_KEY);
+        } else {
+            //创建Fragment
+
+
+        }
+    }
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+
+        /*fragment不为空时 保存*/
+        if (homeFragment != null) {
+            getSupportFragmentManager().putFragment(outState, HOME_FRAGMENT_KEY, homeFragment);
+        }
+        if (dashboardFragment != null) {
+            getSupportFragmentManager().putFragment(outState, DASHBOARD_FRAGMENT_KEY, dashboardFragment);
+        }
+
+        super.onSaveInstanceState(outState);
+    }
+
+
+6、ViewPager中切换界面Fragment被销毁的问题分析
+ViewPager的默认加载方式是缓存当前界面前后相邻的两个界面，即最多共缓存包括当前界面在内的三个界面信息
+解决方案：
+方案一：设置ViewPager的缓存界面数
+此方案适用于界面数较少的情况，避免缓存界面太多导致内存吃紧。
+viewpager.setOffscreenPageLimit(fragmentCount);
+方案二：保存状态并恢复
+此方案适用于可用界面信息可由状态保存和恢复实现的情况。
+在onDestroyView方法内保存相关信息，在onCreateView方法内恢复信息设置。
+方案三（推荐）：复用Fragment的RootView
+此方案适用通用场景，推荐使用。
+步骤1：在onDestroyView方法内把Fragment的RootView从ViewPager中remove
+@Override
+ public void onDestroyView() {
+     LogUtils.d(TAG , "-->onDestroyView");
+     super .onDestroyView();
+     if (null != FragmentView) {  //从ViewPager中移除
+         ((ViewGroup) mFragmentView.getParent()).removeView(mFragmentView);
+     }
+ }
+步骤2：在onCreateView方法内复用RootView
+ @Override
+  public View onCreateView(LayoutInflater inflater, ViewGroup container,
+          Bundle savedInstanceState) {
+          LogUtils.d (TAG, "-->onCreateView");
+          if (null == mFragmentView) { //第一次创建
+               mFragmentView = inflater.inflate(R.layout.fragment, container, false);
+           }
+     return mFragmentView ;
+ }
+
+7、FragmentPagerAdapter 与 FragmentStatePagerAdapter 的区别
+
+1）FragmentPagerAdapter：对于不再需要的 fragment，选择调用 detach 方 法，仅销毁视图，并不会销毁 fragment 实例
+因此 Fragment 还在 FragmentManager 管理中，Fragment 所占用的资源不会被释放。
+    @Override
+    public void destroyItem(@NonNull ViewGroup container, int position, @NonNull Object object) {
+        if (mCurTransaction == null) {
+            mCurTransaction = mFragmentManager.beginTransaction();
+        }
+        mCurTransaction.detach((Fragment)object);
+    }
+
+onPause--ItemFragment{831b928 }
+onStop--ItemFragment{831b928 }
+onDestroyView--ItemFragment{831b928 }  --只会销毁view，fragment实例还在
+
+2）FragmentStatePagerAdapter
+该实现将只保留当前页面，当页面离开视线后，就会被消除，释放其资源；而在页面需要显示时，生成新的页面。
+这么实现的好处就是当拥有大量的页面时，不必在内存中占用大量的内存。
+适合数目不固定的场景。
+    @Override
+    public void destroyItem(@NonNull ViewGroup container, int position, @NonNull Object object) {
+        Fragment fragment = (Fragment) object;
+
+        if (mCurTransaction == null) {
+            mCurTransaction = mFragmentManager.beginTransaction();
+        }
+        mFragments.set(position, null);
+
+        mCurTransaction.remove(fragment); //remove移除掉
+    }
+
+onSaveInstanceState--ItemFragment{cd6468 #2}
+onPause--ItemFragment{cd6468 #2}
+onStop--ItemFragment{cd6468 #2 }
+onDestroyView--ItemFragment{cd6468 #2 }
+onDestroy--ItemFragment{cd6468 #2 }
+onDetach--ItemFragment{cd6468 #2 }  --会销毁fragment实例，释放内存
+
+
+8、notifyDataSetChanged不起作用
+    @Override
+    public int getItemPosition(Object object) {
+        return PagerAdapter.POSITION_NONE;  //以触发销毁对象以及重建对象。
+    }
+
+
+9、
+ 1、后退栈主要是针对一次FragmentTransaction事务提交
+ fragmentTransaction.addToBackStack(name)；
+ 也就是说如果在本次的事务中执行了多次add或replace，那么这一组操作都在一个事务中，也会同时入后退栈，退栈时，也是到当前事务。
+ 2、getSupportFragmentManager().findFragmentByTag(tag)
+ 查询通过 tranaction.replace(R.id.container, fragment,tag);或者tranaction.add(R.id.container, fragment,tag)中设置的tag对应的Fragment
+ 3、getSupportFragmentManager().findFragmentById(id)
+ 查询通过在layout中 <fragment >标签中的对应id的Fragment
+         <fragment
+             android:id="@+id/fragment1"
+             android:name="com.example.fragmentblog2.MyFragment"
+             android:layout_width="wrap_content"
+             android:layout_height="wrap_content"
+             android:layout_alignParentLeft="true"
+             android:layout_alignParentTop="true"
+             android:layout_marginTop="143dp" />
+
+10、无界面Fragment的妙用
+比如ReportFragment，或者RxPermissions里面添加的Fragment。
+一般用来处理生命周期相关的调用，或者处理startActivityForResult()的回调，这样调用者就无需自己处理回调。
+
+11、无ViewPager多Fragment切换的实现方式
+参照TabActivity
+特点：全部Fragment都会添加到容器中，当前页面可见，其他页面隐藏gone。fragment不会重复创建实例。（使用Layout Inspector查看）
+
+    private void setCurrentItem(int pos) {
+        if (currentPos == pos) return;
+        currentPos = pos;
+        Fragment frag = (Fragment) tabPagerAdapter.instantiateItem(container, pos); 如果没有添加过，则创建Fragment 回调adapter的getItem
+        tabPagerAdapter.setPrimaryItem(container, pos, frag);//切换当前显示的Fragment，通过setUserVisibleHint 控制view的显示或隐藏
+        tabPagerAdapter.finishUpdate(container);
+    }
+
+    private class TabPagerAdapter extends FragmentPagerAdapter {
+
+        public TabPagerAdapter(FragmentManager fm) {
+            super(fm);
+        }
+
+        @Override
+        public Fragment getItem(int position) {
+            Fragment fragment = fragmentList.get(position);
+            if (null == fragment) {
+                Bundle bundle = ItemFragment.getBundle("ItemFrag-" + position);
+                fragment = Fragment.instantiate(TabAct.this, fragementClass.get(position).getName(), bundle);
+                fragmentList.put(position, fragment);
+            }
+            //通过setUserVisibleHint 控制View的VISIBLE或GONE
+            ItemFragment itemFragment = (ItemFragment) fragment;
+            itemFragment.setIntercepterVisibleHint(true);
+            return fragment;
+        }
+
+        @Override
+        public int getCount() {
+            return fragementClass.size();
+        }
+
+        @Override
+        public int getItemPosition(@NonNull Object object) {
+            System.out.println("getItemPosition");
+            return PagerAdapter.POSITION_NONE;
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return position;
+        }
+    }
+}
+
+12、ListFragment
+适合用来写demo，或者简单的列表布局，参考AdapterActivity
+    public static class MyListFrag extends ListFragment {
+
+        @Override
+        public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+            super.onViewCreated(view, savedInstanceState);
+            setListAdapter(new ArrayAdapter<>(getContext(), android.R.layout.simple_list_item_1, mTitles));
+        }
+
+        @Override
+        public void onListItemClick(ListView l, View v, int position, long id) {
+            startActivity(new Intent(getContext(), mActivities[position]));
+        }
+    }
+
+
+
+ViewPager+Fragment动态加载数据
+1、setUserVisibleHint
+上一个 fragment setUserVisibleHint设置为 false，要展现的 Fragment setUserVisibleHint 设置为 true。
+2、onHiddenChanged
+可以在 hide = false 时，做一些资源回收操作，在 hide = true 时，做一些刷新操作。
+
+ViewPager动态加载和显示Fragment
+private void addOrShowFragment(FragmentTransaction transaction, Fragment fragment) {
+        if (currentFragment == fragment)
+            return;
+            //隐藏上一个Fragment，添加或显示下一个Fragment
+        if (!fragment.isAdded()) { // 如果当前fragment未被添加，则添加到Fragment管理器中
+            transaction.hide(currentFragment).add(R.id.fl_content, fragment).commit();
+        } else {
+            transaction.hide(currentFragment).show(fragment).commit();
+        }
+        currentFragment.setUserVisibleHint(false); //上一个
+        currentFragment = (BaseFragment) fragment;
+        currentFragment.setUserVisibleHint(true); //下一个
+    }
+
+
+
+

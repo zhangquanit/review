@@ -1,0 +1,45 @@
+
+https://blog.csdn.net/zp0203/article/details/84171116?utm_medium=distribute.pc_relevant.none-task-blog-BlogCommendFromMachineLearnPai2-2.channel_param&depth_1-utm_source=distribute.pc_relevant.none-task-blog-BlogCommendFromMachineLearnPai2-2.channel_param
+
+###### targetSdkVersion ######
+其实就是开启targetSdkVersion版本的新特性，表示你已经在targetSdkVersion版本上测试通过
+比如targetSdkVersion=26(8.0)，就必须适配8.0的新特性，比如显示通知要设置NotificationChannel，后台应用不能开启service等。
+
+
+比如8.0显示通知需要设置NotificationChannel，
+如果targetSdkVersion<26(8.0) 那么不管运行在8.0以下的设备还是8.0以上的设备，都可以显示通知
+如果targetSdkVersion=26  就必须设置NotificationChannel，否则在8.0及以上的设备上，不能显示通知
+
+
+
+一、为什么要开启？
+1、应用商店要求
+比如google商店就要求targetSdkVersion为8.0以上
+2、更好服务用户
+google在新版本上做了很多优化处理，比如权限控制、隐私控制、后台优化等。都需要新特性的支持，如果targetSdkVersion过低，就可以绕过这些限制。
+
+二、升级targetSdkVersion
+android只支持targetSdkVersion的升级，不支持降级(否则不能替换安装app)
+升级targetSdkVersion，要适配对应版本的新特性，比如升级到8.0
+就需要做Notification的适配、快捷键、后台开启后台服务的限制处理。
+
+三、targetSdkVersion是向前兼容的
+比如targetSdkVersion=26  那么在28 29的设备上也是正常运行的
+代码上要做好向后兼容，因为低版本设备上没有高版本SDK的代码，比如发送通知
+NotificationCompat.Builder mBuilder;
+NotificationManager notificationManager;
+
+ notificationManager = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+
+if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {// >=8.0
+    NotificationChannel channel = new NotificationChannel(channelId, "Channel1", NotificationManager.IMPORTANCE_DEFAULT);
+                channel.enableLights(false);
+                notificationManager.createNotificationChannel(channel); //设置NotificationChannel
+                mBuilder = new NotificationCompat.Builder(ctx, channelId);//根据channelId创建Builder
+    }else{
+                mBuilder = new NotificationCompat.Builder(ctx); //8.0之前的创建方式
+    }
+
+    //发送通知
+    Notification notification = mBuilder.build();
+    notificationManager.notify(notificationId, notification);

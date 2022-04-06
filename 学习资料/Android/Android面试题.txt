@@ -1,0 +1,681 @@
+-----------------------------------2017面试----------------------------
+史上最全 Android 面试资料集合
+http://www.jianshu.com/p/d1efe2f31b6d
+https://github.com/JackyAndroid/AndroidInterview-Q-A/blob/master/README-CN.md
+https://github.com/GeniusVJR/LearningNotes
+http://www.jianshu.com/p/d1efe2f31b6d
+各大技术团队博客
+http://blog.csdn.net/tengdazhang770960436/article/details/49963983
+
+
+四大组件
+一、Activity
+四种启动方式：standard、singleTask、singleTop、singInstance
+Fragment
+http://blog.csdn.net/lmj623565791/article/details/37970961
+http://blog.csdn.net/lmj623565791/article/details/37992017
+二、BrocastReceiver
+特点：
+1、消息通知机制、跨进程
+2、运行在主线程中，onReceive方法不能执行耗时操作
+3、在广播中启动Activity，需要给intent添加Intent.FLAG_ACTIVITY_NEW_TASK
+Intent intent=new Intent(context,MainActivity.class);
+intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+context.startActivity(intent);
+注意：在非Acitivity中(Receiver、Service)启动Activity，使用context.startAcitivity()需要给Intent意图添加此标志，否则会抛异常
+android.util.AndroidRuntimeException: Calling startActivity() from outside of an Activity  context requires the FLAG_ACTIVITY_NEW_TASK flag. Is this really what you want?
+
+1、注册广播的两种方式
+静态注册：manifest.xml中注册
+动态注册
+registerReceiver(receiver,filter); //注册广播
+unregisterReceiver(receiver); //注销广播
+
+2、本地广播
+只能在应用内发送、接收，不能在manifest.xml中注册
+通过android.support.v4.content.LocalBroadcastManager来管理
+LocalBroadcastReceiver mLocalReceiver=new LocalBroadcastReceiver();
+LocalBroadcastManager localBroadcastManager = LocalBroadcastManager.getInstance(this);
+localBroadcastManager.registerReceiver(mLocalReceiver,mIntentFilter);//注册广播
+localBroadcastManager.sendBroadcast(mIntent); //发送广播
+localBroadcastManager.unregisterReceiver(mLocalReceiver); //注销广播
+
+3、普通广播与有序广播
+http://blog.csdn.net/harvic880925/article/details/38710901
+
+普通广播是指大家等级都是一样的，当广播到来时，都能一块接收到，并没有接收的先后顺序。由于是一同接收到的，所以一个接收者是没有办法阻止另一个接收者接收这个广播的。
+sendBroadcast(intent);
+有序广播是指接收是按一定的优先级顺序来接收的，优先级高的先收到，并可以对广播进行操作后，再传给下一个接收者，当然也可以不传，如果不传的话，后面的接收者就都收不到这个广播了。
+sendOrderedBroadcast(intent, null);
+
+android:priority设置优先级，范围0~1000
+<receiver android:name=".SmsReceiver" >
+<intent-filter android:priority="100">
+<action android:name="android.provider.Telephony.SMS_RECEIVED" />
+</intent-filter>
+</receiver>
+BroadcastReceiver可以使用setResultXX函数来结果传给下一个BroadcastReceiver，通过getResultXX函数来取得上个BroadcastReceiver返回的结果，并可以abort系列函数来让系统丢弃该广播让，使用该广播不再传送到别的BroadcastReceiver。
+相同android:priority属性的话，先注册的将先收到广播。
+
+三、Service
+http://blog.csdn.net/guolin_blog/article/details/11952435
+http://blog.csdn.net/javazejian/article/details/52709857
+
+四、ContentProvider
+1、ContentProvider提供了底层数据储存的抽象，为储存和读取提供了统一的接口
+2、应用间共享数据，进程间共享数据
+
+声明、使用与自定义权限
+http://blog.csdn.net/harvic880925/article/details/38683625
+
+Loader&AsyncTask
+
+五种数据存储方法
+1 使用SharedPreferences存储数据
+2 文件存储数据
+android7.0上的文件分享FileProvider
+3 SQLite数据库存储数据
+4 使用ContentProvider存储数据
+5 网络存储数据
+注意：敏感数据需要加密存储
+
+Android事件分发拦截
+http://blog.csdn.net/xu_fu/article/details/32937959
+滑动冲突解决：http://www.cnblogs.com/lesliefang/p/5277554.html
+
+
+
+==========================================安卓面试突破专题课程=======================================
+https://github.com/JackyAndroid/AndroidInterview-Q-A/blob/master/README-CN.md
+
+1. 数据库的操作类型有哪些,如何导入外部数据库?
+integer  保存整数，包括byte、short、int、long
+number 可储存整数和浮点数
+varchar(n) 长度不固定且其最大长度为 n 的字串，n不能超过 4000。
+char(n)：长度固定为n的字串，n不能超过 254。
+text: 值为文本字符串,使用数据库编码存储(TUTF-8, UTF-16BE or UTF-16-LE).
+
+导入外部数据库：
+SQLiteDatabase.openDatabase(String path, CursorFactory factory, int flags) 打开数据库
+SQLiteDatabase.openOrCreateDatabase(databaseFile, null); 打开或创建数据库
+
+File targetDB = getDatabasePath(DB_NAME); // /data/data/{pkg}/databases/XXX.db
+然后将外部数据库拷贝到targetDB
+
+2. 是否使用过本地广播,和全局广播有什么差别?
+本地广播
+只能在应用内发送、接收广播，不能在manifest.xml中注册，因此有如下优点：
+1、正在发送的广播不会离开应用程序，不必担心机密数据泄露；
+2、其他程序无法将广播发送到应用程序内部，不担心安全漏洞；
+3、发送本地广播比发送全局广播高效。
+
+全局广播：BroadcastReceiver
+是针对应用间、应用与系统间、应用内部进行通信的一种方式。
+
+3. 是否使用过 IntentService,作用是什么,AIDL 解决了什么问题?(小米)
+1)IntentService
+Service默认是运行在与应用同一个进程的主线程中的，因此不能执行耗时的操作，IntentService继承于Service，因此包含了Service的全部特性和生命周期。
+与Service不同的是，IntentService在onCreate中开启了一个HandlerThread线程，异步执行任务。因此不会阻塞主线程。
+@Override
+public void onCreate() {
+super.onCreate();
+//创建HandlerThread线程，用于产生Looper，并开启Looper.loop
+HandlerThread thread = new HandlerThread("IntentService[" + mName + "]");
+thread.start();
+
+mServiceLooper = thread.getLooper();
+mServiceHandler = new ServiceHandler(mServiceLooper); //用HandlerThread创建的Looper处理消息，因此运行在子线程中。
+}
+
+2)AIDL
+AIDL：Android Interface Definition Language,即Android接口定义语言，主要解决了不同应用或不同进程间的通信问题。
+Android系统中的进程之间不能共享内存,为了使其他的应用程序也可以访问到本应用程序提供的服务，Android系统采用了远程过程调用(Remote Procedure Call，RPC)方式来实现，
+与很多其他的基于RPC的解决方案一样，Android使用一种接口定义语言(AIDL)来公开服务的接口，因此，可以将这种可以跨进程访问的服务称为AIDL服务。
+
+4. Activity、Window、View 三者的差别,fragment 的特点?(360)
+1）Activity、Window、View 三者的差别
+参见Activity&Window&View
+2)fragment 特点
+Fragment可以作为Activity界面的一部分组成出现，用于将view和对应的逻辑封装，从而可得到复用
+可以在一个Activity中同时出现多个Fragment，并且一个Fragment也可以在多个Activity中使用；
+在Activity运行过程中，可以添加、移除或者替换Fragment；
+Fragment可以响应自己的输入事件，并且有自己的生命周期，它们的生命周期会受宿主Activity的生命周期影响。
+
+5. 描述一次网络请求的流程(新浪)
+以一个http请求为例，比如http://www.baidu.com
+1）、连接
+首先需要建立Socket链接，建立Socket连接需要ip和端口号，所以首先要通过DNS解析得到IP，将域名www.baidu.com解析得到ip，为了加快连接速度，可直接通过ip直连，ip由服务器下发。
+如果url里不包含端口号，则会使用该协议的默认端口号。http是默认端口号是80，https的默认端口号是443
+2）发送请求
+连接成功建立后，开始向web服务器发送请求，这个请求一般是GET或POST。消息格式遵循http协议：
+请求行
+请求消息头
+
+请求消息体
+3）服务器发送响应
+响应行
+响应消息头
+
+响应消息体
+
+4）关闭连接
+如果不需要保持连接，则需要关闭
+
+6. Handler、Thread 和 HandlerThread 的差别(小米)
+Handler用于发送和处理消息，和线程没有关系，消息处理所在的线程由Looper决定
+Thread：线程
+HandlerThread：
+public class HandlerThread extends Thread {
+private Looper mLooper;
+protected void onLooperPrepared() {
+
+}
+
+@Override
+public void run() {
+    mTid = Process.myTid();
+    Looper.prepare();//生成一个Looper
+    synchronized (this) {
+        mLooper = Looper.myLooper();//获取当前线程创建的Looper
+        notifyAll();
+    }
+    Process.setThreadPriority(mPriority);
+    onLooperPrepared(); //Looper创建完毕
+    Looper.loop(); //开始消息循环处理
+    mTid = -1;
+}
+ public Looper getLooper() {
+     return mLooper;
+ }
+}
+HandlerThread本身是Thread的子类，作用是创建一个与该Thread绑定的Looper，之后与该Looper绑定Handler发送的消息，都会在该线程中处理
+IntentService中就使用HandlerThread
+public void onCreate() {
+    HandlerThread thread = new HandlerThread("IntentService[" + mName + "]");
+    thread.start(); //开启线程
+    mServiceLooper = thread.getLooper();//当前线程绑定的Looper
+    mServiceHandler = new ServiceHandler(mServiceLooper);//发送消息到该Looper中
+}
+7. 在低版本SDK中 实现高版本 api(小米)
+1）、在使用了高版本API的方法前面加一个@TargetApi
+2）、通过版本号判断使用不同的代码
+ if(Build.VERSION.SDK_INT>11){
+       //使用api 11 新加的方法
+    }else{
+       //低版本兼容
+    }
+3）、使用@SuppressLint，但是不建议使用。
+@SuppressLint 和 @TargetApi达到的效果是一样的，相对于SuppressLint ，TargetApi会根据函数里使用的API，严格匹配SDK版本，给出编译错误，但是SuppressLint 则忽略了SDK版本。
+
+8. launch mode 应用场景(百度、小米、乐视)
+singleTop适合接收通知启动的内容显示页面。
+上文中说的浏览器的书签也是如此，主要就是避免连续开启很多个相同实例，连续后退到相同的界面这个用户体验很囧的。。。
+例如，某个新闻客户端的新闻内容页面，如果收到10个新闻推送，每次都打开一个新闻内容页面是很烦人的。
+singleTask适合作为程序入口点。
+浏览器这个例子比较经典了，就是为了每次启动的时候不要保留着之前的页面
+例如浏览器的主界面。不管从多少个应用启动浏览器，只会启动主界面一次，其余情况都会走onNewIntent，并且会清空主界面上面的其他页面。
+singleInstance适合需要与程序分离开的页面。
+例如闹铃提醒，将闹铃提醒与闹铃设置分离。
+
+9. touch 事件相关(小米)
+http://hanhailong.com/2015/09/24/Android-%E4%B8%89%E5%BC%A0%E5%9B%BE%E6%90%9E%E5%AE%9ATouch%E4%BA%8B%E4%BB%B6%E4%BC%A0%E9%80%92%E6%9C%BA%E5%88%B6/
+
+android事件的基础知识：
+所有的Touch事件都封装到MotionEvent里面
+事件处理包括三种情况，分别为：
+传递—-dispatchTouchEvent()函数、拦截——onInterceptTouchEvent()函数、消费—-onTouchEvent()函数和OnTouchListener
+事件类型分为ACTION_DOWN, ACTION_UP, ACTION_MOVE, ACTION_POINTER_DOWN, ACTION_POINTER_UP, ACTION_CANCEL等，每个事件都是以ACTION_DOWN开始ACTION_UP结束
+
+Android事件传递流程：
+事件都是从Activity.dispatchTouchEvent()开始传递
+事件由父View传递给子View，ViewGroup可以通过onInterceptTouchEvent()方法对事件拦截，停止其向子view传递
+如果事件从上往下传递过程中一直没有被停止，且最底层子View没有消费事件，事件会反向往上传递，这时父View(ViewGroup)可以进行消费，如果还是没有被消费的话，最后会到Activity的onTouchEvent()函数。
+如果View没有对ACTION_DOWN进行消费，之后的其他事件不会传递过来，也就是说ACTION_DOWN必须返回true，之后的事件才会传递进来
+OnTouchListener优先于onTouchEvent()对事件进行消费
+
+事件分发
+
+事件冲突
+
+ItemTouchHelper
+
+NestedScrollView
+
+10. view 绘制流程(百度)
+
+11. 什么情况导致内存泄漏(美团)
+造成内存泄漏的情况有多种：
+1）资源对象没关闭造成的内存泄漏
+资源性对象比如(Cursor，File文件等)往往都用了一些缓冲，我们在不使用的时候，应该及时关闭它们，以便它们的缓冲及时回收内存。
+因此对于资源性对象在不使用的时候，应该调用它的close()函数，将其关闭掉，然后才置为null.在我们的程序退出时一定要确保我们的资源性对象已经关闭。
+2）context泄露
+比如在Activity/Fragment短生命周期对象中，开启子线程去加载数据，如果在子线程中引用了Context，如果在数据加载中退出Activity/Fragment，
+系统本应该回收Activity/Fragment，但是由于线程还未结束，此时就会造成Context的泄露。
+3）注册没取消造成的内存泄漏
+本质都是由于其他长生命周期对象引用了监听器，如果不注销的话，当监听器被回收时，由于其他对象还存在该对象的引用从而造成该对象内存的泄露
+4）单例对象使用不当造成的内存泄漏
+如果单例对象的生命周期同应用生命周期一样长，如果在单例对象中引用了短生命周期对象，比如Activity/Fragment、监听器等，如果这些短生命周期对象在销毁时
+并未从单例对象中断开引用，此时就会造成这些对象的内存泄漏。
+5）非静态内部类造成的内存泄露
+在 Java 中，非静态内部类（包括匿名内部类，比如 Handler, Runnable匿名内部类最容易导致内存泄露）会持有外部类对象的强引用（如 Activity），而静态的内部类则不会引用外部类对象。
+如果在内部类中正在执行一些耗时操作，这时候退出Activity就会造成Activity的内存泄漏
+6）静态类泄露
+对于静态集合类，集合内直接存放一些占用大量内存的对象（而不是通过弱引用存放），那么随着集合 size 的增大，会导致内存占用不断上升，而在 Activity 等销毁时，集合中的这些对象无法被回收，导致内存泄露。
+避免将Context保存为静态对象。
+
+
+几种内存检测工具的介绍
+Memory Monitor
+Allocation Tracker
+Heap Viewer
+LeakCanary
+
+Memory Monitor
+位于 Android Monitor 中，该工具可以：
+方便的显示内存使用和 GC 情况
+快速定位卡顿是否和 GC 有关
+快速定位 Crash 是否和内存占用过高有关
+快速定位潜在的内存泄露问题（内存占用一直在增长）
+但是不能准确的定位问题
+
+Allocation Tracker
+该工具用途：
+可以定位代码中分配的对象类型、大小、时间、线程、堆栈等信息
+可以定位内存抖动问题
+配合 Heap Viewer 定位内存泄露问题（可以找出来泄露的对象是在哪创建的等等）
+使用方法：在 Memory Monitor 中有个 Start Allocation Tracking 按钮即可开始跟踪 在点击停止跟踪后会显示统计结果。
+
+Heap Viewer
+该工具用于：
+显示内存快照信息
+每次 GC 后收集一次信息
+查找内存泄露的利器
+使用方法： 在 Memory Monitor 中有个 Dump Java Heap 按钮，点击即可，在统计报告左上角选按 package 分类。配合 Memory Monitor 的 initiate GC（执行 GC）按钮，可检测内存泄露等情况。
+
+LeakCanary
+LeakCanary会检测应用的内存回收情况，如果发现有垃圾对象没有被回收，就会去分析当前的内存快照，也就是上边MAT用到的.hprof文件，找到对象的引用链，并显示在页面上。
+
+
+内存泄漏的发现:
+1）通过DDMS中的heap工具，去发现是否有内存溢出。
+选择当前应用进程，点击update heap--Cause GC,就会显示当前应用占用内存大小，主要关注 data object占用的内存大小。
+来回进入某个页面，点击heap，如果内存只增不减，则该页面可能存在内存泄漏
+发现可能出现内存泄漏时，我们需要对.prof文件进行分析，方能快速定位到是哪个倒霉家伙导致了内存泄漏
+通过内存分析工具 MAT(Memory Analyzer Tool)，找到内存泄露的对象
+
+
+
+12. ANR 定位和修正
+1）什么叫ANR
+在Android上，如果你的应用程序有一段时间响应不够灵敏，系统会向用户显示一个对话框，这个对话框称作应用程序无响应（ANR：Application Not Responding）对话框。用户可以选择“等待”而让程序继续运行，也可以选择“强制关闭”。
+2)如何避免ANR
+1、运行在主线程里的任何方法都尽可能少做事情。
+特别是，Activity应该在它的关键生命周期方法（如onCreate()和onResume()）里尽可能少的去做耗时操作。
+此时按返回键退出，由于返回事件不能得到及时响应，会出现ANR
+2、应用程序应该避免在BroadcastReceiver里做耗时的操作或计算。
+注意BroadcastReceiver的生命周期短，不要在onReceive()方法中开启线程去执行耗时操作，应该开启一个Service，然后在Service中开启一个线程去执行任务，比如IntentService
+3、及时响应事件
+不要在事件中执行耗时操作。比如按键按下，屏幕触摸.如果事件不能及时响应，程序会处于假死状态，超过一定时间还不能响应，就会弹出ANR框。
+3)查找ANR 的方式：
+1. 导出/data/anr/traces.txt，找出函数和调用过程，分析代码
+2. 通过性能LOG查找
+
+13. 什么情况导致 oom(乐视、美团)
+Out Of Memory：内存溢出
+1）应用中需要加载大对象，例如Bitmap
+解决方案：当我们需要显示大的bitmap对象或者较多的bitmap的时候，就需要进行压缩来防止OOM问题。Options.inSampleSize 可以设置压缩比。
+2)大量内存泄漏导致
+3）资源未及时释放
+比如Cursor未关闭，Stream未关闭等。
+
+实际开发中，可以根据业务功能采用多进程来开发，这样可以申请到更多内存。
+
+14. Android Service 与 Activity 之间通信的几种方式
+1、通过Binder对象
+当Activity通过调用bindService(Intent service, ServiceConnection conn,int flags)绑定服务，绑定成功后，就可以通过binder交互
+如果是跨进程的话，需要使用AIDL
+2、通过broadcast(广播)的形式
+
+
+
+16. 如何保证一个后台服务不被杀死,比较省电的方式是什么?(百度)
+1、onStartCommand方法，返回START_STICKY
+2、提升service优先级
+在AndroidManifest.xml文件中对于intent-filter可以通过android:priority = "1000"这个属性设置最高优先级
+3、提升service进程优先级
+可以使用startForeground 将service放到前台状态。这样在低内存时被kill的几率会低一些。
+4、onDestroy方法里重启service
+service +broadcast  方式，就是当service走ondestory的时候，发送一个自定义的广播，当收到广播的时候，重新启动service；
+5、Application加上Persistent属性
+6、监听系统广播判断Service状态
+通过系统的一些广播，比如：手机重启、界面唤醒、应用状态改变等等监听并捕获到,然后判断我们的Service是否还存活.
+
+17. requestlayout,onlayout,onDraw,DrawChild 区别与联系(猎豹)
+requestLayout：会导致调用measure()过程 和 layout()过程 。 将会根据标志位判断是否需要ondraw
+onlayout：如果该View是ViewGroup对象，需要实现该方法，对每个子视图进行布局
+onDraw：负责绘制视图本身
+drawChild：重新回调每个子视图的draw()方法
+protected boolean drawChild(Canvas canvas, View child, long drawingTime) {
+    return child.draw(canvas, this, drawingTime);
+}
+public void draw(Canvas canvas) {
+onDraw(canvas);
+dispatchDraw(canvas);
+}
+protected void dispatchDraw(Canvas canvas) {
+//ViewGroup实现
+}
+
+18. invalidate()和 postInvalidate() 的区别及使用(百度)
+invalidate()是用来刷新View的，必须是在UI线程中进行工作。
+postInvalidate()可以在非UI线程中被调用
+
+19. Android 动画框架实现原理
+Animation框架定义了透明度，旋转，缩放和位移几种常见的动画，而且控制的是整个View，
+实现原理是每次绘制视图时View所在的ViewGroup中的drawChild函数获取该View的Animation的Transformation值，
+然后调用canvas.concat(transformToApply.getMatrix())，通过矩阵运算完成动画帧，如果动画没有完成，继续调用invalidate()函数，
+启动下次绘制来驱动动画，动画过程中的帧之间间隙时间是绘制函数所消耗的时间.
+
+20. Android 为每个应用程序分配的内存大小是多少?(美团)
+android程序内存一般限制在16M，也有的是24M
+
+21. Android View 刷新机制(百度、美团)
+由ViewRoot对象的performTraversals()方法调用draw()方法发起绘制该View树，值得注意的是每次发起绘图时，并不会重新绘制每个View树的视图，而只会重新绘制那些“需要重绘”的视图，View类内部变量包含了一个标志位DRAWN，当该视图需要重绘时，就会为该View添加该标志位。
+View的绘制，从ViewRoot的performTraversals（）方法开始依次调用perfromMeasure、performLayout和performDraw这三个方法。
+这三个方法分别完成顶级View的measure、layout和draw三大流程，其中perfromMeasure会调用measure，measure又会调用onMeasure，
+在onMeasure方法中则会对所有子元素进行measure，这个时候measure流程就从父容器传递到子元素中了，这样就完成了一次measure过程，
+接着子元素会重复父容器的measure，如此反复就完成了整个View树的遍历。
+同理，performLayout和performDraw也分别完成perfromMeasure类似的流程。通过这三大流程，分别遍历整棵View树，
+就实现了Measure，Layout，Draw这一过程，View就绘制出来了。
+
+由ViewRoot对象的performTraversals()方法调用draw()方法发起绘制该View树，值得注意的是每次发起绘图时，并不会重新绘制每个View树的视图，
+而只会重新绘制那些“需要重绘”的视图，View类内部变量包含了一个标志位DRAWN，当该视图需要重绘时，就会为该View添加该标志位。
+调用流程 ：
+mView.draw()开始绘制，draw()方法实现的功能如下：
+1、 Draw the background
+绘制该View的背景
+2、If necessary, save the canvas' layers to prepare for fading
+为显示渐变框做一些准备操作(见5，大多数情况下，不需要改渐变框)
+3、 Draw view's content
+调用onDraw()方法绘制视图本身   (每个View都需要重载该方法，ViewGroup不需要实现该方法)
+4、Draw children
+调用dispatchDraw ()方法绘制子视图(如果该View类型不为ViewGroup，即不包含子视图，不需要重载该方法)值得说明的是，ViewGroup类已经为我们重写了dispatchDraw ()的功能实现，应用程序一般不需要重写该方法，但可以重载父类函数实现具体的功能。
+5.If necessary, draw the fading edges and restore layers
+绘制边界阴影
+6. Draw decorations (scrollbars for instance)
+onDrawForeground(canvas)  在content上绘制，比如滚动条、forground drawable等。
+
+22. LinearLayout 对比 RelativeLayout(百度)
+（1）RelativeLayout会让子View调用2次onMeasure，LinearLayout只会调用1次onMeasure，LinearLayout 在有weight时，也会调用子View 2次onMeasure
+（2）RelativeLayout的子View如果高度和RelativeLayout不同，则会引发效率问题，当子View很复杂时，这个问题会更加严重。如果可以，尽量使用padding代替margin。
+（3）在不影响层级深度的情况下,使用LinearLayout和FrameLayout而不是RelativeLayout。
+（4）提高绘制性能的使用方式
+根据上面源码的分析，RelativeLayout将对所有的子View进行两次measure，而LinearLayout在使用weight属性进行布局时也会对子View进行两次measure，如果他们位于整个View树的顶端时并可能进行多层的嵌套时，位于底层的View将会进行大量的measure操作，大大降低程序性能。因此，应尽量将RelativeLayout和LinearLayout置于View树的底层，并减少嵌套。
+
+23. 优化自定义 view(百度、乐视、小米)
+1）避免在onDraw中做内存分配的事情，因为任何内存分配都可能导致内存回收，从而导致卡顿。在初始化或者动画之间分配对象,绝不要在动画运行时分配内存。
+2）另一方面需要减少onDraw()方法中的开销，只在需要时才调用onDraw()方法,同时应该避免每次都重新绘制整个View，使用canvas.clipRect()，绘制需要绘制的。
+invalidate()的三个重载版本为：
+1、public void invalidate (Rect dirty)
+2、public void invalidate (int l, int t, int r, int b)
+3、public void invalidate ()
+应该调用带参数的invalidate，减少对落在该矩形区域(参数指定的区域)外视图的不必要重绘 。
+3）减少requestLayout()，因为任何时刻对View调用requestLayout()方法，Android UI 框架都需要遍历整个View树，确定每个视图它们所占用的大小。
+如果在measure过程中有任何冲突，可能会多次遍历View树。
+
+24. ContentProvider(乐视)
+http://blog.csdn.net/coder_pig/article/details/47858489
+25. fragment 生命周期
+onAttach...onCreate...onCreateView..onActivityCreated..onStart..onResume..onPause..onStop..onDestroyView..onDestroy..onDetach
+
+26. volley 解析(美团、乐视)
+http://a.codekk.com/detail/Android/grumoon/Volley%20%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90
+
+27. Android Glide 源码解析
+http://www.lightskystreet.com/2015/10/12/glide_source_analysis/ http://frodoking.github.io/2015/10/10/android-glide/
+
+28. Android 属性动画特性(乐视、小米)
+1、可对任何对象的任何属性根据时间差值去改变值，不仅仅是View。
+2、动画过程中的变化值是透明的，UpdateListener可将动画过程中的变化值回调。
+3、补间动画只是改变了View的显示效果而已，而不会真正去改变View的属性，而属性动画则真正地改变了View的属性。
+
+补间动画：
+对View进行移动、缩放、旋转和淡入淡出操作
+TranslateAnimation、ScaleAnimation、RotateAnimation、AlpahAnimation
+
+29. Handler 机制及底层实现
+Handler主要负责发送消息和处理消息，当我们调用sendMessage或post消息时，会将消息Message进行封装，然后将消息放入MessageQueue队列中。
+MessageQueue队列所在的Looper会循环处理Message，然后回调Handler的dispatchMessage方法。
+public void dispatchMessage(Message msg) {
+    if (msg.callback != null) { //post(runnable)
+        handleCallback(msg);
+    } else {
+        if (mCallback != null) {
+            if (mCallback.handleMessage(msg)) {
+                return;
+            }
+        }
+        handleMessage(msg);
+    }
+}
+
+30. Binder 机制及底层实现
+Binder是Android中的一个类，它实现了IBinder接口。
+从IPC角度来说，Binder是Android中的一种跨进程通信方式
+从Android Framework角度来说，Binder是ServiceManager连接各种Manager（ActivityManager、WindowManager，etc）和相应ManagerService的桥梁；
+从Android应用层来说，Binder是客户端和服务端进行通信的媒介，当你bindService的时候，服务端会返回一个包含了服务端业务调用的Binder对象，通过这个Binder对象，客户端就可以获取服务端提供的服务或者数据，这里的服务包括普通服务和基于AIDL的服务。
+
+
+Binder一个很重要的作用是：将客户端的请求参数通过Parcel包装后传到远程服务端，远程服务端解析数据并执行对应的操作，
+同时客户端线程挂起，当服务端方法执行完毕后，再将返回结果写入到另外一个Parcel中并将其通过Binder传回到客户端，
+客户端接收到返回数据的Parcel后，Binder会解析数据包中的内容并将原始结果返回给客户端，至此，整个Binder的工作过程就完成了。
+由此可见，Binder更像一个数据通道，Parcel对象就在这个通道中跨进程传输，至于双方如何通信，这并不负责，只需要双方按照约定好的规范去打包和解包数据即可。
+
+
+31.Android性能优化
+http://blog.csdn.net/zhangquanit/article/details/54693199
+http://blog.csdn.net/qq_30513483/article/details/53112253
+性能优化检测工具
+http://www.jianshu.com/p/b3b09fa29f65
+
+Android性能优化涉及到很多方面，大致归类为如下几点：
+1）使用异步，避免阻塞主线程，保持APP的高度响应
+2）避免内存泄露
+3）避免overdraw过渡绘制
+设置 -> 开发者选项 -> 调试GPU过度绘制 -> 显示GPU过度绘制
+4）视图优化
+5）Adapter优化
+复用convertView，用ViewHolder代替频繁findViewById
+不要重复创建Listener
+多布局要采用MutilItemView，而不是使用一个大布局然后动态控制需要显示的部分
+不要在getView方法做做耗时的操作
+快速滚动列表的时候，可以停止加载列表项的图片，停止列表项的动画，不要在这时候改变列表项的布局
+尽量用RecyclerView（增量Notify和RecycledViewPool带你飞）
+6）代码优化
+算法优化，减少时间复杂度
+尽量使用int，而不是float或者double
+尽量采用基本类型，避免无必要的自动装箱和拆箱，浪费时间和空间
+选用合适的集合类（尽量以空间换时间）、选用Android家的SparseArray,SparseBooleanArray和SparseLongArray
+
+
+7）其他
+数据库优化、网络优化(Gzip压缩、网络缓存、使用连接池等)、......
+
+32、Android App 的设计架构:MVC,MVP,MVVM 与架构经验谈(搜狐)
+1)MVC
+View:xml Controller:Activity Model:业务逻辑
+2）MVP
+3)MVVM
+4)Flux
+View应用户操作..Action Creator创建Action(如果有网络请求，放在这里处理)，发送给Dispatcher，Dispatcher将Action发送给注册的Store，Store处理业务逻辑并保存数据状态，然后将结果发送给View
+特点：数据单向流动，没有相互交互， 使得逻辑更加清晰，耦合度更低
+5)Clean Architecture
+比较庞大，不太适合快速开发
+
+33、Android设计模式
+http://blog.csdn.net/bboyfeiyu/article/details/44563871
+
+34、Android中数据结构优化
+ArrayMap：对HashMap的改进，对于小数据量，可以节约内存
+他用两个数组来模拟Map，第一个数组存放存放item的hash值，第二数组是把key，value连续的存放在数组里，[key1,value1,key2,value2,key3,value3]
+通过先算hash在第一个数组里找到它的hash index(通过二分法查找)，根据这个index在去第二个数组里找到这个key-value。hash和key必须同时相等，否则从index向前向后查找。
+这个数据结构的设计就做到了，有多少个item我就分配多少内存，做到了memory的节约。
+
+ArraySet：对HashSet的改进，同ArrayMap类似
+
+SparseXX [spɑːs] ：就是以Integer为key
+
+SparseArray：代替HashMap<Integer，Object>，内存更高效，因为不用对int进行包装成Integer，第二避免创建额外对象保存key和value(比如HashMapEntry)
+它内部则是通过两个数组来进行数据存储的，一个存储key，另外一个存储value
+private int[] mKeys; //保存key
+private Object[] mValues; //保存value
+SparseBooleanArray: 代替 HashMap<Integer,Boolean>
+private int[] mKeys;
+private boolean[] mValues; //boolean数组存放value值
+private int mSize;
+SparseIntArray: 代替 HashMap<Integer,Integer>
+private int[] mKeys;
+private int[] mValues; //int数组存放value值
+private int mSize;
+SparseLongArray：代替 HashMap<Integer,Long>
+private int[] mKeys;
+private long[] mValues; //Long数组存放value值
+private int mSize;
+
+//查询
+public int get(int key) {
+return get(key, 0);
+}
+public int get(int key, int valueIfKeyNotFound) {
+int i = ContainerHelpers.binarySearch(mKeys, mSize, key);//二分法查找key
+
+if (i < 0) {
+    return valueIfKeyNotFound;
+} else {
+    return mValues[i];
+}
+}
+//移除
+public void removeAt(int index) {
+System.arraycopy(mKeys, index + 1, mKeys, index, mSize - (index + 1)); //index之后的元素前移1位
+System.arraycopy(mValues, index + 1, mValues, index, mSize - (index + 1)); //index之后的元素前移1位
+mSize--;
+}
+
+public void clear() {
+mSize = 0;
+}
+public int size() {
+return mSize;
+}
+
+35.Android 中的Dalvik和ART是什么,有啥区别?
+http://www.jianshu.com/p/58f817d176b7
+1)Dalvik虚拟机
+Dalvik是Google公司自己设计用于Android平台的虚拟机。
+它可以支持已转换为 .dex格式的Java应用程序的运行，.dex格式是专为Dalvik设计的一种压缩格式，适合内存和处理器速度有限的系统。
+Dalvik 经过优化，允许在有限的内存中同时运行多个虚拟机的实例，并且每一个Dalvik 应用作为一个独立的Linux 进程执行。独立的进程可以防止在虚拟机崩溃的时候所有程序都被关闭。
+2)Dalvik和JVM有啥关系？
+主要区别：
+Dalvik是基于寄存器的，而JVM是基于栈的。
+Dalvik运行dex文件，而JVM运行java字节码
+自Android 2.2开始，Dalvik支持JIT（just-in-time，即时编译技术）。
+
+当Android启动时，Dalvik VM 监视所有的程序（APK），并且创建依存关系树，为每个程序优化代码并存储在Dalvik缓存中。
+Dalvik第一次加载后会生成Cache文件(/data/dalvik-cache/)，以提供下次快速加载，所以第一次会很慢。
+
+一般来说,基于堆栈的机器必须使用指令才能从堆栈上加载和操作数据,因此,相对基于寄存器的机器，它们需要更多的指令才能实现相同的性能。但是基于寄存器机器上的指令必须经过编码,因此,它们的指令往往更大。
+3)什么是ART？
+即Android Runtime，是android5.0推出的，可以兼容Dalvik。
+ART 的机制与 Dalvik 不同。
+在Dalvik下，应用每次运行的时候，字节码都需要通过即时编译器（just in time ，JIT）转换为机器码，这会拖慢应用的运行效率，
+而在ART 环境中，应用在第一次安装的时候，字节码就会预先编译成机器码，使其成为真正的本地应用。这个过程叫做预编译（AOT,Ahead-Of-Time）。这样的话，应用的启动(首次)和执行都会变得更加快速。
+优点：
+1、系统性能的显著提升。
+2、应用启动更快、运行更快、体验更流畅、触感反馈更及时。
+3、更长的电池续航能力。
+4、支持更低的硬件。
+缺点：
+1.机器码占用的存储空间更大
+2.应用的安装时间会变长。
+
+关于ART的优点：
+http://blog.csdn.net/weizaishouex2010/article/details/51510786
+1）垃圾回收算法更高效
+Dalvik的垃圾回收分为两个阶段。
+  第一个阶段，Dalvik暂停所有的线程来分析堆的使用情况。
+  第二个阶段，Dalvik暂停所有线程来清理堆。这就会导致应用在性能上的“卡顿”。
+ART改进后的垃圾回收算法只暂停线程一次，垃圾回收启动后，不再是两次暂停，而是一次暂停。在遍历阶段，应用不需要暂停，同时垃圾回收停时间也大大缩短，因为 Google使用了一种新技术（packard pre-cleaning），在暂停前就做了许多事情，减轻了暂停时的工作量。
+2）超大对象存储空间的支持
+
+
+36、Android进程
+Android会根据进程中运行的组件类别以及组件的状态来判断该进程的重要性，Android会首先停止那些不重要的进程。按照重要性从高到低一共有五个级别：
+1）前台进程
+2）可见进程
+3）服务进程
+4）后台进程
+5）空进程
+
+
+37、ListView原理
+38、App冷启动、热启动
+1）冷启动
+当启动应用时，后台没有该应用的进程，这时系统会重新创建一个新的进程分配给该应用,所以会先创建和初始化Application类，再创建和初始化MainActivity类（包括一系列的测量、布局、绘制），最后显示在界面上。
+应用的冷启动启动流程？
+当点击app的启动图标时，安卓系统会从Zygote进程中fork创建出一个新的进程分配给该应用，之后会依次创建和初始化Application类、创建MainActivity类、加载主题样式Theme中的　　　　　　　
+windowBackground等属性设置给MainActivity以及配置Activity层级上的一些属性、再inflate布局、当onCreate/onStart/onResume方法都走完了后最后才进行contentView的measure/layout/draw显示在界面上，所以直到这里，
+应用的第一次启动才算完成，这时候我们看到的界面也就是所说的第一帧。所以，总结一下，应用的启动流程如下：
+Application的构造器方法——>attachBaseContext()——>onCreate()——>Activity的构造方法——>onCreate()——>配置主题中背景等属性——>onStart()——>onResume()——>测量布局绘制显示在界面上。
+
+2)热启动
+当启动应用时，后台已有该应用的进程，所以不会创建Application，而是直接走MainActivity创建流程。
+
+冷启动过程中碰到的白屏黑屏以及优化启动时间？
+冷启动时间是指当用户点击你的app那一刻到系统调用Activity.onCreate()之间的时间段
+在这个时间段内，WindowManager会先加载app主题样式中的windowBackground做为app的预览元素，然后再真正去加载activity的layout布局
+1、设置入口Activity的主题为透明的
+这样当用户点击桌面APP图片的时候，并不会“立即”进入APP，而是在桌面上停留一会
+2、将背景图设置成APP的欢迎背景图
+<style name="splash" parent="AppTheme">
+  <item name="android:windowBackground">@drawable/splash</item>
+</style>
+
+39、在Service或者BroadCastReceiver中弹出dialog
+默认是不能在Service或BrocastReceiver中显示Dialog的，
+如果非要显示呢？
+可以有两种方式：
+1）在manifest.xml中申请SYSTEM_ALERT_WINDOW权限
+<uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"></uses-permission>
+然后给dialog的window设置type=WindowManager.LayoutParams.TYPE_SYSTEM_ALERT
+
+AlertDialog.Builder builder = new AlertDialog.Builder(this);
+builder.setMessage("Are you sure you want to exit?")
+       .setCancelable(false)
+       .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+           public void onClick(DialogInterface dialog, int id) {
+                MyActivity.this.finish();
+           }
+       })
+AlertDialog dialog = builder.create();
+  dialog.getWindow().setType(WindowManager.LayoutParams.TYPE_SYSTEM_ALERT);
+  dialog.show();
+2）使用一个Dialog Activity作为dialog来显示
+
+
+Android跨进通讯的几种方式？
+1.Bundle传递消息
+2.文件共享
+3.使用Messenger
+4.AIDL
+5.四大组件之一的contentProvider
+6. Socket 网络通信
+
+LayoutInflater
+ public View inflate(@LayoutRes int resource, @Nullable ViewGroup root, boolean attachToRoot) {
+
+ }
+参数说明：
+resource：需要渲染的布局layout
+root：指定要添加到的父容器
+attachToRoot：是否添加到父容器root中  如果为true，返回的view为父容器root，false则返回子view本身。

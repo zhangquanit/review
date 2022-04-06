@@ -1,0 +1,131 @@
+https://segmentfault.com/a/1190000004086213
+
+插件的方式只有三种：１.apk安装、２.apk不安装、３.dex包。
+1、apk安装方式．插件apk安装后，可以在主程序中通过包名加载到插件的context,有了插件的context就可以解决加载插件资源的问题。
+2、apk不安装.
+可以通过DexClassLoader加载到插件A中的类，通过AssetManager加载插件中的资源以及主题，这样有一个好处我们不需要运行插件，只需要将插件从服务器上下载到指定目录运行即可达到效果。
+3、dex包，这个基本是java开发中jar包的方式．同样通过dexclassloader加载到插件中的类，但没有context，无法加载到资源。如果要使用布局，只能在插件中使用java代码来写布局。
+
+一、APK不安装
+1、资源加载问题
+加载插件包中的Resource，插件包也需要使用该Resource，这样使用R类无影响
+   /**
+    * 资源问题AssetManager 调用AssetManager里面的隐藏方法addAssetPath(String path)
+    * 插件里面的资源---> AssetManager --->Resource里面
+    */
+    try {
+        mAssetManager = AssetManager.class.newInstance();
+        mAssetManager.getClass().getMethod("addAssetPath", String.class).invoke(mAssetManager, dexPath);
+        Resources superRes = super.getResources();
+        mResources = new Resources(mAssetManager,
+        superRes.getDisplayMetrics(), superRes.getConfiguration());
+        // 主题也从resource里加载进来
+        mTheme = mResources.newTheme();
+        // If they are from different Resources, 
+        // only the resources they
+        // have in common will be set in this theme.
+        mTheme.setTo(super.getTheme());
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+//---------实现两个抽象方法	
+@Override  
+public AssetManager getAssets() {  
+    return mAssetManager == null ? super.getAssets() : mAssetManager;  
+}  
+
+@Override  
+public Resources getResources() {  
+    return mResources == null ? super.getResources() : mResources;  
+}	
+
+宿主APP可通过插件包中的resource，根据资源名称获取资源，比如
+int resID = mResources.getIdentifier("app_name", "string", getActivity().getPackageName());	
+String appName=mResources.getString(resID);
+
+2、Activity
+1)代理Activity模式
+https://segmentfault.com/a/1190000004062972
+要想启动插件包中的Activity，就要先启动ProxyActivity，在ProxyActivity中反射调用PluginActivity的相应生命周期函数。
+2）使用ProxyActivity，但是hook Activity启动过程（ActivityThread中的Handler），替换为我们的插件Activity，这样启动的插件Activity是有生命周期的，和注册的Activity
+一样。但是资源还是需要使用插件包中的Resource
+3）使用Fragment
+Fragment自带生命周期，不需要在Manifest里注册，所以可以在.dex里使用Fragment来代替Activity，代价就是Fragment之间的切换会繁琐许多。
+
+String className = mIntent.getStringExtra("class");
+try {
+	fragment = (Fragment) getClassLoader()
+		.loadClass(className).newInstance();
+
+	FragmentManager fm = getFragmentManager();
+	FragmentTransaction ft = fm.beginTransaction();
+
+	Bundle bundle = new Bundle();
+	bundle.putString("uid", "001");
+	fragment.setArguments(bundle);
+
+	ft.add(R.id.fragment, fragment);
+	ft.commit();
+} catch (Exception e) {
+	e.printStackTrace();
+}
+4）动态创建Activity模式
+https://segmentfault.com/a/1190000004077469
+
+
+3、动态加载so库
+处理插件项目里的so库的加载
+一般我们都是将so库放在libs目录下的，随apk文件一起打包发布，使用System.loadLibrary("xx")加载
+这里需要把插件APK里面的SO库文件解压释放出来，在根据当前设备CPU的型号选择对应的SO库，并使用System.load方法加载到当前内存中来
+比如加载assets目录下的so文件
+File dir = this.getDir("jniLibs", Activity.MODE_PRIVATE); //  /data/data/{pkg}/ 目录下
+File distFile = new File(dir.getAbsolutePath() + File.separator + "libstackblur.so");
+
+if (copyFileFromAssets(this, "libstackblur.so", distFile.getAbsolutePath())){
+	//使用load方法加载内部储存的SO库
+	System.load(distFile.getAbsolutePath());
+}
+
+注意：不要把so拷贝到SD卡上加载，否则会报错。
+SD卡等外部存储路径是一种可拆卸的（mounted）不可执行（noexec）的储存媒介，不能直接用来作为可执行文件的运行目录，使用前应该把可执行文件复制到APP内部存储再运行。
+
+多插件APK的管理
+动态加载一个插件APK需要三个对应的DexClassLoader、AssetManager、Resources实例，可以用组合的方式创建一个PluginPackage类存放这三个变量，再创建一个管理类PluginManager，用成员变量HashMap<dexPath,pluginPackage>的方式保存PluginPackage实例。
+
+
+插件APK的管理后台
+主项目要从服务器下载最新的插件替换本地已经存在的旧插件。为此，我们应该有一个管理后台，它大概有以下功能：
+上传不同版本的插件APK，并向APP主项目提供插件APK信息查询功能和下载功能；
+管理在线的插件APK，并能向不同版本号的APP主项目提供最合适的插件APK；
+万一最新的插件APK出现紧急BUG，要提供旧版本回滚功能；
+出于安全考虑应该对APP项目的请求信息做一些安全性校验；
+
+插件APK合法性校验
+加载外部的可执行代码，一个逃不开的问题就是要确保外部代码的安全性，我们可不希望加载一些来历不明的插件APK，因为这些插件有的时候能访问主项目的关键数据。
+最简单可靠的做法就是校验插件APK的MD5值，如果插件APK的MD5与我们服务器预置的数值不同，就认为插件被改动过，弃用。
+
+
+插件使用主项目的功能
+比如需要检测用户登录状态，使用同样的ImageLoader等，我们就定义一套接口library，让主项目compile依赖，插件项目provide依赖。
+也需要注意：
+1、我们应该只给插件开放一些必要的接口，不然会有安全性问题；
+2、作为通用模块的Library应该保持不变（起码接口不变），不然主项目与插件项目的版本同步会复杂许多；
+3、因为插件项目已经严重依赖主项目了，所以插件项目不能独立运行，因为缺少必要的环境；
+
+热部署 VS 插件化
+一般我们把独立运行的插件APK叫热部署，而需要依赖主项目的环境运行的插件APK叫做插件化。
+
+
+相关开源框架：
+
+
+
+
+
+
+
+
+
+
+
+

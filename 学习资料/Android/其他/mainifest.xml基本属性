@@ -1,0 +1,94 @@
+
+1、android:exported
+以activity为例，
+表示当前Activity是否可以被另一个应用的组件启动：true允许被启动；false不允许被启动。
+如果被设置为了false，那么这个Activity将只会被当前应用或者拥有同样user ID的应用调用。
+exported 的默认值根据Activity中是否有<intent-filter> 来定。如果有<intent-filter>，默认值为true，否则为false。
+
+除了这个属性可以指定Activity是否暴露给其它应用，也可以使用permission来限制外部实体唤醒当前Activity
+
+外部应用打开其他一个应用中export=false的Service
+    Intent intent = new Intent();
+    intent.setComponent(new ComponentName("com.review.service", "com.review.service.IntentFilterService"));
+    startService(intent);
+抛出异常
+java.lang.SecurityException: Not allowed to start service Intent { cmp=com.review.service/.IntentFilterService } without permission not exported from uid 10139
+
+2、android:enable
+是否可以被系统实例化，默认为 true，false则不会被激活。
+
+3、<intent-filter>
+
+1)、service中的<intent-filter>
+    <service
+        android:name=".IntentFilterService"
+        android:exported="true">
+        <!-- 5.0后不允许通过intent-filter打开service-->
+        <intent-filter>
+            <action android:name="com.review.service.intent.action" />
+            <category android:name="android.intent.category.DEFAULT" />
+        </intent-filter>
+    </service>
+
+    intent = new Intent("com.review.service.intent.action");
+    intent.addCategory(Intent.CATEGORY_DEFAULT);
+    startService(intent);
+抛出异常：Service Intent must be explicit: Intent { act=com.review.service.intent.action cat=[android.intent.category.DEFAULT] }
+
+2）activity中的<intent-filter>
+正常使用
+3）receiver中的<intent-filter>
+8.0后对隐式广播进行了限制。可以通过content.registReceiver()注册
+之前注册隐式广播的应用可以使用JobScheduler代替类似工作。
+
+  <!-- 注册隐式广播-->
+    <receiver android:name=".test.TestReceiver">
+        <intent-filter>
+            <action android:name="com.review.service.intent.receiver" />
+        </intent-filter>
+    </receiver>
+
+    //8.0无法收到隐式广播
+    intent = new Intent("com.review.service.intent.receiver");
+    sendBroadcast(intent);
+
+    可以通过代码注册
+    IntentFilter intentFilter = new IntentFilter("com.review.service.intent.receiver");
+    registerReceiver(new TestReceiver(), intentFilter);
+
+
+4、permission
+自定义权限
+https://blog.csdn.net/zhangquanit/article/details/54861142
+
+    <permission
+        android:name="com.test.permission"
+        android:label="自定义权限"
+        android:protectionLevel="normal" />
+
+    <activity
+        android:name=".PermissionActivity"
+        android:permission="com.zhangquanit.permission.act"
+        android:exported="true"
+        />
+其中name和protectionLevel是必须的，其他都是非必须的。
+关于protectionLevel：
+normal, dangerous, signature, signatureOrSystem ,取决于保护级别，在确定是否授予权限时，系统可能采取不同的操作。
+normal 低风险权限，只要申请了就可以使用，安装时不需要用户确认；
+dangerous 高风险权限，安装时需要用户的确认才可使用；
+signature 只有当申请权限的应用程序的数字签名与声明此权限的应用程序的数字签名相同时（如果是申请系统权限，则需要与系统签名相同），才能将权限授给它；
+signatureOrSystem 签名相同，或者申请权限的应用为系统应用。
+
+如果自己的组件想对外提供功能，protectionLevel就可以设置为noraml，如果是自己应用内访问，就设置为signature。
+
+注意：应用程序内部访问是不需要申请权限的。
+在其他应用内访问
+<uses-permission android:name="com.zhangquanit.permission.act"/>
+    Intent intent = new Intent();
+    intent.setClassName("com.xx","com.xx.PermissionActivity");
+    startActivity(intent);
+
+5、android:process
+通过android:process 为四大组件指定不同的进程
+进程名以：开头，表示应用的私有进程，只能在当前应用内访问，进程名为：包名+进程名
+进程名不是以:开头，则表示该进程是共用进程，相同的uid可访问。

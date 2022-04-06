@@ -1,0 +1,82 @@
+
+ViewStub:
+主要作用就是延迟加载View，提升初始加载速度
+
+一、与View.gone的区别
+1、设置为GONE的View不会占用布局空间，但是会进行类的初始化，占用内存。
+ViewStub只有在代码中进行inflate之后才会加载进来，不会占用内存。
+2、通过GONE来控制View的可见性，需要提前将一堆View写到layout中，不便于layout的维护。
+
+二、原理
+public final class ViewStub extends View {
+    private WeakReference<View> mInflatedViewRef;
+
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        setMeasuredDimension(0, 0); //宽高为0
+    }
+
+    @Override
+    public void draw(Canvas canvas) { //空实现
+    }
+
+    @Override
+    protected void dispatchDraw(Canvas canvas) {
+    }
+
+    public void setVisibility(int visibility) {
+        if (mInflatedViewRef != null) { //已经渲染了真实的内容布局，则设置真实布局的visibility
+            View view = mInflatedViewRef.get();
+            if (view != null) {
+                view.setVisibility(visibility);
+            } else {
+                throw new IllegalStateException("setVisibility called on un-referenced view");
+            }
+        } else {
+            super.setVisibility(visibility);
+            if (visibility == VISIBLE || visibility == INVISIBLE) {
+                inflate();
+            }
+        }
+    }
+    public View inflate() {
+        final ViewParent viewParent = getParent();
+        final ViewGroup parent = (ViewGroup) viewParent;
+        final View view = inflateViewNoAdd(parent); //inflate 内容布局
+        replaceSelfWithView(view, parent); //替换当前ViewStub
+
+        mInflatedViewRef = new WeakReference<>(view);
+        if (mInflateListener != null) {
+            mInflateListener.onInflate(this, view);
+        }
+        return view;
+    }
+
+    private void replaceSelfWithView(View view, ViewGroup parent) {
+        final int index = parent.indexOfChild(this);
+        parent.removeViewInLayout(this); //将ViewStub从父容器中移除
+
+        final ViewGroup.LayoutParams layoutParams = getLayoutParams();
+        if (layoutParams != null) {
+            parent.addView(view, index, layoutParams); //添加到父容器中
+        } else {
+            parent.addView(view, index); //添加到父容器中
+        }
+    }
+
+    private View inflateViewNoAdd(ViewGroup parent) {
+        final LayoutInflater factory;
+        if (mInflater != null) {
+            factory = mInflater;
+        } else {
+            factory = LayoutInflater.from(mContext);
+        }
+        final View view = factory.inflate(mLayoutResource, parent, false);
+
+        if (mInflatedId != NO_ID) {
+            view.setId(mInflatedId);
+        }
+        return view;
+    }
+
+}

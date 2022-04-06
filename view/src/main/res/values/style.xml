@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+     继承方式
+     1、parent
+       通过parent属性用来继承Android已经定义好的style
+       比如：parent="android:Theme.Dialog" 或 parent="@android:style/Theme.Dialog"
+     2、继承自定义的style，可以使用parent或 . 的方式
+       比如  <style name="parent.child">  View中调用时 style="@style/parent.child"
+             或 <style name="child" parent="@style/parent.child"> View中调用时 style="@style/child"
+             或 <style name="child" parent="parent.child">  View中调用时 style="@style/child"
+     -->
+    <style name="myDialog" parent="android:Theme.Dialog">
+        <item name="android:windowBackground">@mipmap/ic_launcher</item>
+    </style>
+
+    <style name="parent">
+        <item name="android:textSize">30sp</item>
+        <item name="android:text">parent</item>
+    </style>
+    <!--  .的继承方式  -->
+    <style name="parent.child">
+        <item name="android:text">child</item>
+        <item name="android:textColor">#ff00ff</item>
+    </style>
+
+   <!-- parent的继承方式-->
+    <style name="child" parent="@style/parent.child">
+        <item name="android:text">childs</item>
+    </style>
+    <style name="flowlayout_textview">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">@drawable/shape1</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:layout_margin">4dp</item>
+        <item name="android:padding">5dp</item>
+    </style>
+</resources>

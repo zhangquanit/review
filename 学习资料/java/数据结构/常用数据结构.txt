@@ -1,0 +1,36 @@
+
+一、数组
+在java中当创建数组时会在内存中划分出一块连续的内存，然后当有数据进入的时候会将数据按顺序的存储在这块连续的内存中。
+读取数组中的数据时，需要提供数组中的索引，然后数组根据索引将内存中的数据取出来，插入和删除涉及数组元素的移动
+
+特点：寻址读取数据比较快，插入和删除比较慢。
+
+二、链表
+链表中的数据并不是连续的，通过数据的指针指向下一个数据，这样链表就把一些碎片空间利用起来了。、
+特点：查询速度慢，插入和删除速度快(只需要改动指针的指向)
+
+三、栈（FILO）
+栈是一种先进后出的数据结构，类似盒子
+
+四、队列（FIFO）
+队列是一种先进先出的数据结构，类似于管道
+
+五、HashSet
+特点：元素不重复、无序
+public class HashSet<E>
+    extends AbstractSet<E>
+    implements Set<E>, Cloneable, java.io.Serializable
+{
+    private transient HashMap<E,Object> map;
+    private static final Object PRESENT = new Object();
+    public boolean add(E e) {
+        return map.put(e, PRESENT)==null;
+    }
+}
+
+六、HashMap
+public class HashMap<K,V> extends AbstractMap<K,V>
+    implements Map<K,V>, Cloneable, Serializable {
+
+
+}

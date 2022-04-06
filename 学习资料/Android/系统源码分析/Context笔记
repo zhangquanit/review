@@ -1,0 +1,309 @@
+Context : 抽象类
+   ---ContextImpl :Context的具体实现
+   ---ContextWrapper ：代理Context，具体实现由mBase变量完成，mBase变量为CotextImpl实例
+         ---Application
+         ---Service
+		 ---ContextThemeWrapper
+		        -----Activity
+
+//抽象类，定义所有抽象方法
+public abstract class Context {
+
+    public abstract void startActivity(Intent intent);
+}
+
+//Context的代理实现，可以通过继承重写方法，避免修改原始Context
+//继承ContextWrapper就可以避免重写Context的所有抽象方法,比如Application
+public class ContextWrapper extends Context {
+    Context mBase; //一般是ContextImpl对象
+
+    public ContextWrapper(Context base) {
+        mBase = base;
+    }
+    protected void attachBaseContext(Context base) { //设置具体实现
+        if (mBase != null) {
+            throw new IllegalStateException("Base context already set");
+        }
+        mBase = base;
+    }
+
+    @Override
+    public void startActivity(Intent intent) {
+        mBase.startActivity(intent);
+    }
+}
+
+//修改和替换Context的主题
+public class ContextThemeWrapper extends ContextWrapper {
+    private int mThemeResource;
+    private Resources.Theme mTheme;
+    private LayoutInflater mInflater;
+    private Configuration mOverrideConfiguration;
+    private Resources mResources;
+
+    public ContextThemeWrapper(Context base, int themeResId) {
+        super(base);
+        mThemeResource = themeResId;
+    }
+    public ContextThemeWrapper(Context base, Resources.Theme theme) {
+        super(base);
+        mTheme = theme;
+    }
+
+    @Override
+    public void setTheme(int resid) {
+        if (mThemeResource != resid) {
+            mThemeResource = resid;
+            initializeTheme();
+        }
+    }
+}
+
+//重写、扩展Context，而无需修改原始Context
+public class Activity extends ContextThemeWrapper{
+    @Override
+    public void startActivity(Intent intent) {
+        this.startActivity(intent, null);
+    }
+    @Override
+    public void startActivity(Intent intent, @Nullable Bundle options) {
+        if (options != null) {
+            startActivityForResult(intent, -1, options);
+        } else {
+            startActivityForResult(intent, -1);
+        }
+    }
+    //扩展Context行为，避免修改Context
+    public void startActivityForResult(Intent intent, int requestCode) {
+        startActivityForResult(intent, requestCode, null);
+    }
+
+    public void startActivityForResult(Intent intent, int requestCode,Bundle options) {
+        mInstrumentation.execStartActivity(
+               this, mMainThread.getApplicationThread(), mToken, this,
+               intent, requestCode, options);
+    }
+
+    final void attach(Context context, ActivityThread aThread,
+            Instrumentation instr, IBinder token, int ident,
+            Application application, Intent intent, ActivityInfo info,
+            CharSequence title, Activity parent, String id,
+            NonConfigurationInstances lastNonConfigurationInstances,
+            Configuration config, String referrer, IVoiceInteractor voiceInteractor,
+            Window window, ActivityConfigCallback activityConfigCallback) {
+
+        //注入ContextImpl对象， 由ContextImpl.createActivityContext创建
+        attachBaseContext(context);
+        //创建PhoneWindow
+        mWindow = new PhoneWindow(this, window, activityConfigCallback);
+     }
+ }
+
+//Context通用实现
+class ContextImpl extends Context {
+    final  ActivityThread mMainThread;
+    final LoadedApk mPackageInfo;
+    private ClassLoader mClassLoader;
+    private final  ResourcesManager mResourcesManager;
+    private Resources mResources;
+    private  Display mDisplay;
+
+    @Override
+    public void startActivity(Intent intent) {
+        startActivity(intent, null);
+    }
+    @Override
+    public void startActivity(Intent intent, Bundle options) {
+        mMainThread.getInstrumentation().execStartActivity(
+                getOuterContext(), mMainThread.getApplicationThread(), null,
+                (Activity) null, intent, -1, options);
+    }
+
+    static ContextImpl createAppContext(ActivityThread mainThread, LoadedApk packageInfo) {
+          //创建Application的mBase对象
+    }
+    static ContextImpl createActivityContext(ActivityThread mainThread,
+            LoadedApk packageInfo, ActivityInfo activityInfo, IBinder activityToken, int displayId,
+            Configuration overrideConfiguration) {
+        //创建Activity的mBase对象
+    }
+    private ContextImpl(@Nullable ContextImpl container, @NonNull ActivityThread mainThread,
+            @NonNull LoadedApk packageInfo, @Nullable String splitName,
+            @Nullable IBinder activityToken, @Nullable UserHandle user, int flags,
+            @Nullable ClassLoader classLoader) {
+        //私有构造函数，只能调用createXXX()创建
+     }
+
+}
+------------------------------Activity与Context绑定流程--------------------------------
+//1、Instrumentation创建Activity
+Activity activity = mInstrumentation.newActivity(cl, component.getClassName(), r.intent);
+
+//2、创建ContextImpl：负责Context的具体实现
+ContextImpl appContext = ContextImpl.createActivityContext(
+		this, r.packageInfo, r.token, displayId, r.overrideConfig);
+appContext.setOuterContext(activity);//将Activity与该ContextImpl绑定
+
+//3、将Context等信息注入到Activity中。mBase=ContextImpl
+activity.attach(appContext, this, getInstrumentation(), r.token,
+		r.ident, app, r.intent, r.activityInfo, title, r.parent,
+		r.embeddedID, r.lastNonConfigurationInstances, config,
+		r.referrer, r.voiceInteractor, window);
+
+public class Activity extends ContextThemeWrapper{
+    //将创建的ContextImpl实例赋值给Activity，之后调用相关功能都转交给ContextImpl执行
+	final void attach(Context context, ActivityThread aThread,
+			Instrumentation instr, IBinder token, int ident,
+			Application application, Intent intent, ActivityInfo info,
+			CharSequence title, Activity parent, String id,
+			NonConfigurationInstances lastNonConfigurationInstances,
+			Configuration config, String referrer, IVoiceInteractor voiceInteractor,
+			Window window) {
+		attachBaseContext(context);
+		mWindow = new PhoneWindow(this, window);
+
+	}
+    @Override
+    protected void attachBaseContext(Context base) {
+        mBase = base;
+    }
+
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
+        .............................
+		//通知Application有Activity创建了。 Application通知监听 ActivityLifecycleCallbacks.onActivityCreated
+        getApplication().dispatchActivityCreated(this, savedInstanceState);
+    }
+
+    protected void onResume() {
+        ......................
+        getApplication().dispatchActivityResumed(this);
+    }
+    protected void onDestroy() {
+        .......................
+        getApplication().dispatchActivityDestroyed(this);
+    }
+}
+
+--------------------Application
+主要负责管理ActivityLifecycleCallbacks、ComponentCallbacks
+Activity在生命周期方法中会调用Application进行响应周期函数更新
+比如在Activity的onCreate中调用Application.dispatchActivityCreated()，通知所有的ActivityLifecycleCallbacks监听器，有Activity创建了。
+
+public class Application extends ContextWrapper implements ComponentCallbacks2 {
+    public LoadedApk mLoadedApk;
+    private ArrayList<ActivityLifecycleCallbacks> mActivityLifecycleCallbacks = //Activity生命周期回调
+            new ArrayList<ActivityLifecycleCallbacks>();
+
+   final void attach(Context context) { //context为ContextImpl实例  由ContextImpl.createAppContext创建
+        attachBaseContext(context);
+        mLoadedApk = ContextImpl.getImpl(context).mPackageInfo;
+    }
+
+    //Activity生命周期回调
+    public interface ActivityLifecycleCallbacks {
+        void onActivityCreated(Activity activity, Bundle savedInstanceState);
+        void onActivityStarted(Activity activity);
+        void onActivityResumed(Activity activity);
+        void onActivityPaused(Activity activity);
+        void onActivityStopped(Activity activity);
+        void onActivitySaveInstanceState(Activity activity, Bundle outState);
+        void onActivityDestroyed(Activity activity);
+    }
+	//注册监听器
+    public void registerActivityLifecycleCallbacks(ActivityLifecycleCallbacks callback) {
+        synchronized (mActivityLifecycleCallbacks) {
+            mActivityLifecycleCallbacks.add(callback);
+        }
+    }
+    //注销监听器
+    public void unregisterActivityLifecycleCallbacks(ActivityLifecycleCallbacks callback) {
+        synchronized (mActivityLifecycleCallbacks) {
+            mActivityLifecycleCallbacks.remove(callback);
+        }
+    }
+   //通知监听器，有Activity创建了
+   void dispatchActivityCreated(Activity activity, Bundle savedInstanceState) {
+        Object[] callbacks = collectActivityLifecycleCallbacks();
+        if (callbacks != null) {
+            for (int i=0; i<callbacks.length; i++) {
+			     //通知所有监听器，有Activity创建了
+                ((ActivityLifecycleCallbacks)callbacks[i]).onActivityCreated(activity,
+                        savedInstanceState);
+            }
+        }
+    }
+
+    void dispatchActivityStarted(Activity activity) {
+        Object[] callbacks = collectActivityLifecycleCallbacks();
+        if (callbacks != null) {
+            for (int i=0; i<callbacks.length; i++) {
+                ((ActivityLifecycleCallbacks)callbacks[i]).onActivityStarted(activity);
+            }
+        }
+    }
+
+    void dispatchActivityResumed(Activity activity) {
+        Object[] callbacks = collectActivityLifecycleCallbacks();
+        if (callbacks != null) {
+            for (int i=0; i<callbacks.length; i++) {
+                ((ActivityLifecycleCallbacks)callbacks[i]).onActivityResumed(activity);
+            }
+        }
+    }
+
+    void dispatchActivityPaused(Activity activity) {
+        Object[] callbacks = collectActivityLifecycleCallbacks();
+        if (callbacks != null) {
+            for (int i=0; i<callbacks.length; i++) {
+                ((ActivityLifecycleCallbacks)callbacks[i]).onActivityPaused(activity);
+            }
+        }
+    }
+
+    void dispatchActivityStopped(Activity activity) {
+        Object[] callbacks = collectActivityLifecycleCallbacks();
+        if (callbacks != null) {
+            for (int i=0; i<callbacks.length; i++) {
+                ((ActivityLifecycleCallbacks)callbacks[i]).onActivityStopped(activity);
+            }
+        }
+    }
+
+    void dispatchActivityDestroyed(Activity activity) {
+        Object[] callbacks = collectActivityLifecycleCallbacks();
+        if (callbacks != null) {
+            for (int i=0; i<callbacks.length; i++) {
+                ((ActivityLifecycleCallbacks)callbacks[i]).onActivityDestroyed(activity);
+            }
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

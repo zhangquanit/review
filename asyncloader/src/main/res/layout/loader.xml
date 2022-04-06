@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <Button
+        android:id="@+id/btn_initloader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="init loader" />
+
+    <Button
+        android:id="@+id/btn_restartLoader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="restartLoader" />
+
+    <Button
+        android:id="@+id/btn_destroyLoader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="destroyLoader" />
+
+    <Button
+        android:id="@+id/btn_asyncloader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="AsyncTaskLoader" />
+
+    <Button
+        android:id="@+id/btn_asyncloader_destory"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="AsyncTaskLoader destory" />
+
+    <Button
+        android:id="@+id/btn_asyncloader_change"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="AsyncTaskLoader 通知刷新数据" />
+
+</LinearLayout>

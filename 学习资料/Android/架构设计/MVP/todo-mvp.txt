@@ -1,0 +1,155 @@
+一、todo-mvp
+Activity--->Presenter---Respository(内存级缓存、本地缓存、网络请求)
+
+基类
+public interface BaseView<T> {
+
+    void setPresenter(T presenter);//将presenter注入到View中
+
+}
+public interface BasePresenter {
+
+    void start();
+
+}
+public interface TasksContract {
+     //该模块的View
+    interface View extends BaseView<Presenter> {
+       ...........更新UI逻辑
+    }
+     //该模块的Presenter
+    interface Presenter extends BasePresenter {
+       ...........操作respository的api
+    }
+}
+
+1、UI
+-----Activity
+
+// 创建并添加Fragment
+TasksFragment tasksFragment = TasksFragment.newInstance();
+ActivityUtils.addFragmentToActivity(
+		getSupportFragmentManager(), tasksFragment, R.id.contentFrame);
+
+// 创建Presenter
+mTasksPresenter = new TasksPresenter(respository, tasksFragment);
+
+-----Fragment
+public class TasksFragment extends Fragment implements TasksContract.View {
+    private TasksContract.Presenter mPresenter;
+	
+	 @Override
+    public void onResume() {
+        super.onResume();
+        mPresenter.start(); //开始
+    }
+	
+    @Override
+    public void setPresenter(@NonNull TasksContract.Presenter presenter) {
+        mPresenter = presenter; //将presenter绑定到View中
+    }
+}	
+	
+2、Presenter
+public class TasksPresenter implements TasksContract.Presenter {
+	public TasksPresenter(@NonNull TasksRepository tasksRepository, @NonNull TasksContract.View tasksView) {
+		mTasksRepository = tasksRepository；//操作respository获取数据
+		mTasksView = tasksView；    //更新UI
+		mTasksView.setPresenter(this); //将Presenter注入到View中
+	}
+
+}
+
+3、Respository数据
+//定义接口
+public interface TasksDataSource {
+     //回调
+    interface GetTaskCallback {
+
+        void onTaskLoaded(Task task);
+
+        void onDataNotAvailable();
+    }
+
+    void getTasks(@NonNull LoadTasksCallback callback);
+
+}
+//本地缓存（数据库）实现接口
+public class TasksLocalDataSource implements TasksDataSource {
+    private static TasksLocalDataSource INSTANCE;
+    private TasksDbHelper mDbHelper;
+
+    private TasksLocalDataSource(@NonNull Context context) {
+        mDbHelper = new TasksDbHelper(context);
+    }
+    // 单列模式
+    public static TasksLocalDataSource getInstance(@NonNull Context context) {
+        if (INSTANCE == null) {
+            INSTANCE = new TasksLocalDataSource(context);
+        }
+        return INSTANCE;
+    }
+}
+//网络数据，实现相同的接口
+public class TasksRemoteDataSource implements TasksDataSource {
+
+    private static TasksRemoteDataSource INSTANCE;
+    private TasksRemoteDataSource() {}	
+	//单列模式
+    public static TasksRemoteDataSource getInstance() {
+        if (INSTANCE == null) {
+            INSTANCE = new TasksRemoteDataSource();
+        }
+        return INSTANCE;
+    }
+}
+   
+//Respository，实现相同数据操作接口
+public class TasksRepository implements TasksDataSource {
+
+    private static TasksRepository INSTANCE = null;
+    private final TasksDataSource mTasksRemoteDataSource;//网络数据
+    private final TasksDataSource mTasksLocalDataSource; //本地缓存
+
+    /**
+     * 内存级缓存数据
+     */
+    Map<String, Task> mCachedTasks;
+
+    /**
+     * true表示缓存已失效  需要从网络更新
+     */
+    boolean mCacheIsDirty = false;
+
+    private TasksRepository(@NonNull TasksDataSource tasksRemoteDataSource,
+                            @NonNull TasksDataSource tasksLocalDataSource) {
+        mTasksRemoteDataSource = checkNotNull(tasksRemoteDataSource);
+        mTasksLocalDataSource = checkNotNull(tasksLocalDataSource);
+    }
+	 //单列模式
+	public static TasksRepository getInstance(TasksDataSource tasksRemoteDataSource,
+										  TasksDataSource tasksLocalDataSource) {
+	if (INSTANCE == null) {
+		INSTANCE = new TasksRepository(tasksRemoteDataSource, tasksLocalDataSource);
+	}
+	return INSTANCE;
+   }
+ }  
+
+获取数据：先从内存级缓存中获取，然后从本地缓存中获取，最后才从网络获取
+删除数据：删除内存级、本地、网络中的数据。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

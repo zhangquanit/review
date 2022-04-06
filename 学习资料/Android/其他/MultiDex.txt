@@ -1,0 +1,76 @@
+
+一、为方法数超过 64K 的应用启用 MultiDex
+当您的应用及其引用的库包含的方法数超过 65536 时，您会遇到一个构建错误，指明您的应用已达到 Android 构建架构规定的引用限制：
+65536是单个 Dalvik Executable (DEX) 字节码文件内的代码可调用的引用总数。其中包括 Android 框架方法、库方法以及您自己的代码中的方法
+
+1K=1024
+由于 65536 等于 64 X 1024，因此这一限制称为“64K 引用限制”。
+
+二、Android 5.0 之前版本的 MultiDex 支持
+Android 5.0（API 级别 21）之前的平台版本使用 Dalvik 运行时执行应用代码。
+默认情况下，Dalvik 将应用限制为每个 APK 只能使用一个 classes.dex 字节码文件。
+为了绕过这一限制，您可以在项目中添加 MultiDex 支持库：
+dependencies {
+    def multidex_version = "2.0.1"
+    implementation 'androidx.multidex:multidex:$multidex_version'
+}
+
+public class MyApplication extends SomeOtherApplication {
+  @Override
+  protected void attachBaseContext(Context base) {
+     super.attachBaseContext(base);
+     MultiDex.install(this);
+  }
+}
+现在，当您构建应用时，Android 构建工具会根据需要构造主要 DEX 文件 (classes.dex) 和辅助 DEX 文件（classes2.dex 和 classes3.dex 等）。
+然后，构建系统会将所有 DEX 文件打包到 APK 中。
+在运行时，MultiDex API 使用特殊的类加载器搜索适用于您的方法的所有 DEX 文件（而不是只在主 classes.dex 文件中搜索）。
+
+MultiDex 支持库的局限性
+1、启动期间在设备的数据分区上安装 DEX 文件的过程相当复杂，如果辅助 DEX 文件较大，可能会导致应用无响应 (ANR) 错误。
+启用代码缩减，以尽量减小 DEX 文件的大小，并移除未使用的代码部分。
+2、当搭载的版本低于 Android 5.0（API 级别 21）时，使用 MultiDex 不足以避开 linearalloc 限制
+
+
+二、Android 5.0 及更高版本的 MultiDex 支持
+Android 5.0（API 级别 21）及更高版本使用名为 ART 的运行时，它本身支持从 APK 文件加载多个 DEX 文件。
+ART 在应用安装时执行预编译，扫描 classesN.dex 文件，并将它们编译成一个 .oat 文件，以供 Android 设备执行。
+因此，如果您的 minSdkVersion 为 21 或更高的值，则默认情况下会启用 MultiDex，并且您不需要 MultiDex 支持库。
+
+
+三、声明主DEX 文件中必需的类
+为 MultiDex 应用构建每个 DEX 文件时，构建工具会执行复杂的决策制定以确定主 DEX 文件中需要的类，
+以便您的应用能够成功启动。
+因此，如果您收到 java.lang.NoClassDefFoundError，则必须使用构建类型中的 multiDexKeepFile 或 multiDexKeepProguard 属性声明这些其他类，
+以手动将这些类指定为主 DEX 文件中的必需类。
+
+multiDexKeepFile 属性
+在 multiDexKeepFile 中指定的文件应该每行包含一个类，并且类采用 com/example/MyClass.class 格式。
+例如，您可以创建一个名为 multidex-config.txt 的文件，如下所示：
+com/example/MyClass.class
+com/example/MyOtherClass.class
+
+android {
+    buildTypes {
+        release {
+            multiDexKeepFile file('multidex-config.txt')
+            ...
+        }
+    }
+}
+
+
+multiDexKeepProguard 属性
+multiDexKeepProguard 文件使用与 Proguard 相同的格式，并且支持全部 Proguard 语法。
+您可以创建一个名为 multidex-config.pro 的文件，如下所示：
+-keep class com.example.MyClass
+-keep class com.example.MyClassToo
+
+android {
+    buildTypes {
+        release {
+            multiDexKeepProguard file('multidex-config.pro')
+            ...
+        }
+    }
+}

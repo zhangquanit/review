@@ -1,0 +1,304 @@
+
+Activity--->Presenter---Respository(内存级缓存、本地缓存、网络请求)
+Respository模块中查询数据以Observable<>对外提供
+本地数据库使用SqlBrite，查询数据将原来的Cursor转换为Observable<> 以便统一以Observable对外提供
+SqlBrite –一个响应式的数据查询框架(用 RxJava 来访问数据库)
+
+基类
+public interface BaseView<T> {
+
+    void setPresenter(T presenter);//将presenter注入到View中
+
+}
+public interface BasePresenter {
+    void subscribe(); //订阅和取消订阅
+    void unsubscribe();
+}
+
+//线程调度器
+public class SchedulerProvider implements BaseSchedulerProvider {
+
+    @Nullable
+    private static SchedulerProvider INSTANCE;
+
+    private SchedulerProvider() {
+    }
+
+    public static synchronized SchedulerProvider getInstance() {
+        if (INSTANCE == null) {
+            INSTANCE = new SchedulerProvider();
+        }
+        return INSTANCE;
+    }
+
+    @Override
+    @NonNull
+    public Scheduler computation() {
+        return Schedulers.computation();
+    }
+
+    @Override
+    @NonNull
+    public Scheduler io() {
+        return Schedulers.io(); //IO线程
+    }
+
+    @Override
+    @NonNull
+    public Scheduler ui() {
+        return AndroidSchedulers.mainThread();//主线程
+    }
+}
+
+public interface TasksContract {
+     //该模块的View
+    interface View extends BaseView<Presenter> {
+       ...........更新UI逻辑
+    }
+     //该模块的Presenter
+    interface Presenter extends BasePresenter {
+       ...........操作respository的api
+    }
+}
+一、UI
+-----Activity
+TasksFragment tasksFragment =TasksFragment.newInstance();
+ActivityUtils.addFragmentToActivity(
+                    getSupportFragmentManager(), tasksFragment, R.id.contentFrame);
+//创建Presenter					
+mTasksPresenter = new TasksPresenter(
+                repository,
+                tasksFragment,
+                SchedulerProvider); 
+-----Fragment
+public class TasksFragment extends Fragment implements TasksContract.View {
+    private TasksContract.Presenter mPresenter;
+    @Override
+    public void onResume() {
+        super.onResume();
+        mPresenter.subscribe(); //onResume中订阅
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        mPresenter.unsubscribe(); //取消订阅
+    }
+
+    @Override
+    public void setPresenter(@NonNull TasksContract.Presenter presenter) {
+        mPresenter = presenter;
+    }
+}
+
+二、Presenter
+public class TasksPresenter implements TasksContract.Presenter {
+
+    private final TasksRepository mTasksRepository; //数据模块
+    private final TasksContract.View mTasksView; //View模块
+    private final BaseSchedulerProvider mSchedulerProvider; //线程调度器
+
+    private boolean mFirstLoad = true;
+
+    @NonNull
+    private CompositeSubscription mSubscriptions;
+
+    public TasksPresenter(@NonNull TasksRepository tasksRepository,
+                          @NonNull TasksContract.View tasksView,
+                          @NonNull BaseSchedulerProvider schedulerProvider) {
+        mTasksRepository = tasksRepository;
+        mTasksView = tasksView;
+        mSchedulerProvider = schedulerProvider;
+
+        mSubscriptions = new CompositeSubscription();
+        mTasksView.setPresenter(this); //将Presenter注入到View中
+    }
+	@Override
+    public void subscribe() {
+        loadTasks(false);
+    }
+
+    @Override
+    public void unsubscribe() {
+        mSubscriptions.clear(); //清空订阅
+    }
+	
+	private void loadTasks(final boolean forceUpdate, final boolean showLoadingUI) {
+        if (showLoadingUI) { //显示loading
+            mTasksView.setLoadingIndicator(true);
+        }
+        if (forceUpdate) { //刷新标志 需要从网络获取数据
+            mTasksRepository.refreshTasks();
+        }
+
+       
+        mSubscriptions.clear(); //清除订阅
+        Subscription subscription = mTasksRepository
+                .getTasks()
+                .flatMap(new Func1<List<Task>, Observable<Task>>() {
+                    @Override
+                    public Observable<Task> call(List<Task> tasks) {
+                        return Observable.from(tasks);
+                    }
+                })
+                .filter(task -> {
+                    switch (mCurrentFiltering) {
+                        case ACTIVE_TASKS:
+                            return task.isActive();
+                        case COMPLETED_TASKS:
+                            return task.isCompleted();
+                        case ALL_TASKS:
+                        default:
+                            return true;
+                    }
+                })
+                .toList()
+                .subscribeOn(mSchedulerProvider.computation()) //在子线程中执行请求
+                .observeOn(mSchedulerProvider.ui()) //在main线程中更新UI
+                .doOnTerminate(() -> {
+                    if (!EspressoIdlingResource.getIdlingResource().isIdleNow()) {
+                        EspressoIdlingResource.decrement(); // Set app as idle.
+                    }
+                })
+                .subscribe(
+                        // onNext
+                        this::processTasks,
+                        // onError
+                        throwable -> mTasksView.showLoadingTasksError(),
+                        // onCompleted
+                        () -> mTasksView.setLoadingIndicator(false));
+        mSubscriptions.add(subscription);
+    }
+	
+三、Respository
+//定义数据接口
+public interface TasksDataSource {
+
+    Observable<List<Task>> getTasks();
+
+    Observable<Task> getTask(@NonNull String taskId);
+
+}
+
+//本地缓存  实现数据接口
+public class TasksLocalDataSource implements TasksDataSource {
+
+    @Nullable
+    private static TasksLocalDataSource INSTANCE;
+    @NonNull
+    private final BriteDatabase mDatabaseHelper;
+    @NonNull
+    private Func1<Cursor, Task> mTaskMapperFunction;
+
+    // Prevent direct instantiation.
+    private TasksLocalDataSource(@NonNull Context context,
+                                 @NonNull BaseSchedulerProvider schedulerProvider) {
+        TasksDbHelper dbHelper = new TasksDbHelper(context);
+        SqlBrite sqlBrite = SqlBrite.create();
+        mDatabaseHelper = sqlBrite.wrapDatabaseHelper(dbHelper, schedulerProvider.io());
+        mTaskMapperFunction = this::getTask;
+    }
+
+	//单列
+    public static TasksLocalDataSource getInstance(
+            @NonNull Context context,
+            @NonNull BaseSchedulerProvider schedulerProvider) {
+        if (INSTANCE == null) {
+            INSTANCE = new TasksLocalDataSource(context, schedulerProvider);
+        }
+        return INSTANCE;
+    }
+
+    @Override
+    public Observable<List<Task>> getTasks() {
+        String[] projection = {
+                TaskEntry.COLUMN_NAME_ENTRY_ID,
+                TaskEntry.COLUMN_NAME_TITLE,
+                TaskEntry.COLUMN_NAME_DESCRIPTION,
+                TaskEntry.COLUMN_NAME_COMPLETED
+        };
+		//查询DB，并将cursor转换为Observable返回
+        String sql = String.format("SELECT %s FROM %s", TextUtils.join(",", projection), TaskEntry.TABLE_NAME);
+        return mDatabaseHelper.createQuery(TaskEntry.TABLE_NAME, sql)
+                .mapToList(mTaskMapperFunction);
+    }
+}
+
+//网络获取数据，实现数据接口
+public class TasksRemoteDataSource implements TasksDataSource {
+
+    private static TasksRemoteDataSource INSTANCE;
+
+	private TasksRemoteDataSource() {}
+    public static TasksRemoteDataSource getInstance() {
+        if (INSTANCE == null) {
+            INSTANCE = new TasksRemoteDataSource();
+        }
+        return INSTANCE;
+    }
+	
+	@Override
+    public Observable<List<Task>> getTasks() {
+        return Observable
+                .from(TASKS_SERVICE_DATA.values())
+                .delay(SERVICE_LATENCY_IN_MILLIS, TimeUnit.MILLISECONDS)
+                .toList();
+    }
+}
+ 
+//Respository，实现相同数据操作接口
+public class TasksRepository implements TasksDataSource {
+
+    private static TasksRepository INSTANCE = null;
+    private final TasksDataSource mTasksRemoteDataSource;//网络数据
+    private final TasksDataSource mTasksLocalDataSource; //本地缓存
+
+    /**
+     * 内存级缓存数据
+     */
+    Map<String, Task> mCachedTasks;
+
+    /**
+     * true表示缓存已失效  需要从网络更新
+     */
+    boolean mCacheIsDirty = false;
+
+    private TasksRepository(@NonNull TasksDataSource tasksRemoteDataSource,
+                            @NonNull TasksDataSource tasksLocalDataSource) {
+        mTasksRemoteDataSource = tasksRemoteDataSource;
+        mTasksLocalDataSource = tasksLocalDataSource;
+    }
+	 //单列模式
+	public static TasksRepository getInstance(TasksDataSource tasksRemoteDataSource,
+										  TasksDataSource tasksLocalDataSource) {
+	if (INSTANCE == null) {
+		INSTANCE = new TasksRepository(tasksRemoteDataSource, tasksLocalDataSource);
+	}
+	return INSTANCE;
+   }
+   
+      @Override
+    public Observable<List<Task>> getTasks() {
+        // 先从内存级缓存中获取
+        if (mCachedTasks != null && !mCacheIsDirty) {
+            return Observable.from(mCachedTasks.values()).toList();
+        } else if (mCachedTasks == null) {
+            mCachedTasks = new LinkedHashMap<>();
+        }
+
+		//从网络中获取
+        Observable<List<Task>> remoteTasks = getAndSaveRemoteTasks();
+
+        if (mCacheIsDirty) {
+            return remoteTasks;
+        } else {
+            // 如果本地缓存可用则从本地缓存中获取  
+            Observable<List<Task>> localTasks = getAndCacheLocalTasks();
+            return Observable.concat(localTasks, remoteTasks)
+                    .filter(tasks -> !tasks.isEmpty())
+                    .first();
+        }
+    }
+ }  
+
+

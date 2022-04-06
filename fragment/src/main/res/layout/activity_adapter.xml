@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical" android:layout_width="match_parent"
+    android:padding="20dp"
+    android:id="@+id/container"
+    android:layout_height="match_parent">
+
+    <!--<Button
+        android:id="@+id/pagerAdapter"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="FragmentPagerAdapter"
+        android:textAllCaps="false"
+        android:onClick="pagerAdapter"
+        />
+
+    <Button
+        android:id="@+id/statePagerAdapter"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="FragmentStatePagerAdapter"
+        android:textAllCaps="false"
+        android:onClick="statePagerAdapter"
+        />
+
+    <Button
+        android:id="@+id/tabActivity"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Tab Activity"
+        android:textAllCaps="false"
+        android:onClick="tabActivity"
+        />-->
+</LinearLayout>

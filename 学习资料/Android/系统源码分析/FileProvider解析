@@ -1,0 +1,137 @@
+
+
+<provider
+    android:name="androidx.core.content.FileProvider"
+    android:authorities="${applicationId}.common.provider"
+    android:exported="false"
+    android:grantUriPermissions="true">
+    <meta-data
+        android:name="android.support.FILE_PROVIDER_PATHS"
+        android:resource="@xml/common_filepaths" />
+</provider>
+
+common_filepaths.xml
+    <paths xmlns:android="http://schemas.android.com/apk/res/android">
+        <external-path name="external_files" path="."/>
+        <!-- /storage/emulated/0/Download/com.bugly.upgrade.demo/.beta/apk-->
+        <external-path name="beta_external_path" path="Download/"/>
+        <!--/storage/emulated/0/Android/data/com.bugly.upgrade.demo/files/apk/-->
+        <external-path name="beta_external_files_path" path="Android/data/"/>
+    </paths>
+
+生成uri
+Uri uri=FileProvider.getUriForFile(mContext, uri,photoFile);
+
+public class FileProvider extends ContentProvider {
+
+    @Override
+    public void attachInfo(@NonNull Context context, @NonNull ProviderInfo info) {
+        super.attachInfo(context, info);
+        //Application.attachBaseContext-->attachInfo--Application.onCreate()
+        mStrategy = getPathStrategy(context, info.authority);
+    }
+
+    public static Uri getUriForFile(@NonNull Context context, @NonNull String authority,
+            @NonNull File file) {
+        //1、解析xml  建立隐射关系   key=name  value=标签对应文件夹目录地址
+        final PathStrategy strategy = getPathStrategy(context, authority);
+        //2.根据file的文件地址所在目录，找到key  然后拼接 content://{authority}/{name}/文件地址
+        return strategy.getUriForFile(file);
+    }
+    private static PathStrategy getPathStrategy(Context context, String authority) {
+        PathStrategy strat;
+        synchronized (sCache) {
+            strat = sCache.get(authority); //先从缓存查找
+            if (strat == null) {
+                //解析xml
+                strat = parsePathStrategy(context, authority);
+                sCache.put(authority, strat);
+            }
+        }
+        return strat;
+    }
+    private static PathStrategy parsePathStrategy(Context context, String authority)
+            throws IOException, XmlPullParserException {
+
+        final SimplePathStrategy strat = new SimplePathStrategy(authority);
+        final ProviderInfo info = context.getPackageManager()
+                .resolveContentProvider(authority, PackageManager.GET_META_DATA);
+
+        final XmlResourceParser in = info.loadXmlMetaData(
+                context.getPackageManager(), META_DATA_FILE_PROVIDER_PATHS);
+
+        int type;
+        while ((type = in.next()) != END_DOCUMENT) {
+            if (type == START_TAG) {
+                final String tag = in.getName();
+
+                final String name = in.getAttributeValue(null, ATTR_NAME); //name属性
+                String path = in.getAttributeValue(null, ATTR_PATH); //path属性
+
+                File target = null;
+                if (TAG_ROOT_PATH.equals(tag)) { //<root-path>  代表 /
+                    target = DEVICE_ROOT;
+                } else if (TAG_FILES_PATH.equals(tag)) { //<files-path>
+                    target = context.getFilesDir();
+                } else if (TAG_CACHE_PATH.equals(tag)) { //<cache-path>
+                    target = context.getCacheDir();
+                } else if (TAG_EXTERNAL.equals(tag)) { // <external-path>
+                    target = Environment.getExternalStorageDirectory();
+                } else if (TAG_EXTERNAL_FILES.equals(tag)) { // <external-files-path>
+                    File[] externalFilesDirs = ContextCompat.getExternalFilesDirs(context, null);
+                    if (externalFilesDirs.length > 0) {
+                        target = externalFilesDirs[0];
+                    }
+                } else if (TAG_EXTERNAL_CACHE.equals(tag)) { // <external-cache-path>
+                    File[] externalCacheDirs = ContextCompat.getExternalCacheDirs(context);
+                    if (externalCacheDirs.length > 0) {
+                        target = externalCacheDirs[0];
+                    }
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP
+                        && TAG_EXTERNAL_MEDIA.equals(tag)) { // <external-media-path>
+                    File[] externalMediaDirs = context.getExternalMediaDirs();
+                    if (externalMediaDirs.length > 0) {
+                        target = externalMediaDirs[0];
+                    }
+                }
+
+                if (target != null) {
+                    File file = new File(target, path); //根据标签对应的目录+path子目录
+                    strat.addRoot(name, file); //建立隐射关系  name <-> file
+                }
+            }
+        }
+
+        return strat;
+    }
+
+     static class SimplePathStrategy implements PathStrategy {
+         private final String mAuthority;
+         private final HashMap<String, File> mRoots = new HashMap<String, File>();
+
+         @Override
+         public Uri getUriForFile(File file) {
+
+             String  path=file.getCanonicalPath();
+
+             //根据文件地址，找到对应的目录隐射
+             Map.Entry<String, File> mostSpecific = null;
+             for (Map.Entry<String, File> root : mRoots.entrySet()) {
+                 final String rootPath = root.getValue().getPath(); //文件目录地址
+                 if (path.startsWith(rootPath) && (mostSpecific == null
+                         || rootPath.length() > mostSpecific.getValue().getPath().length())) {
+                     mostSpecific = root;
+                 }
+             }
+
+
+             final String rootPath = mostSpecific.getValue().getPath(); //获取文件夹地址
+
+             //拼接 {name}/文件地址
+             path = Uri.encode(mostSpecific.getKey()) + '/' + Uri.encode(path, "/");
+             //拼接 content://{authority}/{name}/文件地址
+             return new Uri.Builder().scheme("content")
+                     .authority(mAuthority).encodedPath(path).build();
+         }
+     }
+}

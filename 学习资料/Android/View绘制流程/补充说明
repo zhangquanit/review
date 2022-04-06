@@ -1,0 +1,24 @@
+一、MeasureSpec的三种model
+MeasureSpec.EXACTLY
+是精确尺寸，当我们将控件的layout_width或layout_height指定为具体数值时如andorid:layout_width="50dip"，或者为MATCH_PARENT时，
+都是控件大小已经确定的情况，都是精确尺寸。
+
+MeasureSpec.AT_MOST
+是最大尺寸，当控件的layout_width或layout_height指定为WRAP_CONTENT时，控件大小一般随着控件的内容进行变化，此时控件尺寸只要不超过父控件允许的最大尺寸即可。
+因此，此时的mode是AT_MOST，size给出了父控件允许的最大尺寸。
+
+MeasureSpec.UNSPECIFIED
+是未指定尺寸，这种情况不多，父控件不对子View的大小进行限制
+
+二、常用方法
+public static int getSize(int measureSpec) 获取size大小
+public static int getMode(int measureSpec) 获取spec model
+public static int makeMeasureSpec(int size, int mode) //创建MeasureSpec
+
+二、layout()确定位置，其中坐标是相对于父View的
+public void layout(int l, int t, int r, int b) {
+       onLayout(changed, l, t, r, b);
+       //注意：l，t，r，b都是相对于父控件的坐标，而不是在屏幕上的坐标，对应getLeft、getTop、getRight、getBottom
+}
+getWidth()=right-left ;  getHeight()=bottom-top; 在onLayout之后得到，此时该值等于测量宽高
+getMeasuredWidth()/getMeasuredHeight()可获得测量宽高，在onMeasure之后得到

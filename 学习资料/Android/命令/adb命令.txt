@@ -1,0 +1,36 @@
+adb无线调试
+1、先将手机通过数据线连接到电脑上
+2、重启adb
+adb kill-server
+adb start-server
+3、端口映射
+adb tcpip 5555
+4、连接
+adb connect <ip>
+其中ip为手机当前连接wifi的ip地址
+5、查看连接的设备
+adb devices
+6、操作指定设备
+adb -s xx
+7、adb pull/push
+
+8、adb shell dumpsys
+dumpsys命令用于打印出当前系统信息，可以在命令后面加指定的service name(比如activity,location),如果不加则默认打印出设备中所有service的信息.
+adb shell dumpsys <service name>
+service name可通过adb shell dumpsys或adb shell service list方法获取.
+
+// 查看Activity相关信息
+adb shell dumpsys activity
+// 查看CPU相关信息
+adb shell dumpsys cpuinfo
+// 查看电池使用信息
+adb shell dumpsys battery
+//查看Window的相关信息,最后部分可以看到分辨率的信息
+adb shell dumpsys window
+
+
+有些service能够接收额外的参数，我们可以使用-h查看帮助信息。
+// 查看package这个service的帮助信息
+adb shell dumpsys package -h
+// 查看activity这个service的帮助信息
+adb shell dumpsys activity -h

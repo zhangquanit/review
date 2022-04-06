@@ -1,0 +1,257 @@
+win7创建热点：
+创建或修改密码:netsh wlan set hostednetwork mode=allow ssid=zhangquan key=cys00651
+打开网络和共享中心：选择当前联网的网络....>共享....添加新建的虚拟wifi
+开启:netsh wlan start hostednetwork
+关闭:netsh wlan stop hostednetwork
+
+
+Git代码托管:
+https://git.oschina.net
+
+首先安装git客户端,申请github账号
+1、本地创建ssh key ，安装完git之后直接运行ssh命令
+ssh-keygen -t rsa -C "zhangquanit@gmail.com"
+一路回车就行。成功的话会在~/下生成.ssh文件夹，进去，打开id_rsa.pub，复制里面的key。
+2、回到github，进入Account Settings，左边选择SSH Keys，Add SSH Key,title随便填，粘贴key。为了验证是否成功，在git bash下输入
+$ ssh -T git@github.com
+如果是第一次的会提示是否continue，输入yes就会看到：
+You’ve successfully authenticated, but GitHub does not provide shell access 。这就表示已成功连上github。
+3、配置账号
+$ git config --global user.name "zhangquanit"
+$ git config --global user.email "zhangquanit@gmail.com"
+
+
+本地仓库提交到远程仓库
+初始化本地仓库
+$ git init
+添加本地文件，并提交到远程仓库
+$ git remote add origin git@github.com:zhangquanit/android_test.git
+$ git push -u origin master
+
+创建tag：
+1：切换到主干（master）
+2：开始创建标签，创建标签的两种方式：
+   1：$ git tag -a v100 -m "add v100"  //创建标签， -a 加标签，-m  加标签注释。
+   2：$ git tag v100                       //创建轻量级标签，不用-a，-m等参数
+3：查看创建的标签
+   $ git tag  //列出git中现有的所有标签
+   $ git show v100    //git show 命令查看相应标签的版本信息，并连同显示打标签时的提交对象
+4：加上-f 覆盖原有的tag
+git tag -f v100
+5：如果要一次推送所有本地新增的标签上去，可以使用 --tags 选项：$ git push origin --tags，
+普通的git push origin master操作不会推送标签到服务器端。
+推送指定的标签：$ git push origin  v100
+6：删除标签：  git tag -d v100，删除服务器标签：git push origin :refs/tags/lilerong
+
+
+
+
+
+//.............................................................
+1.Git 全局设置:
+git config --global user.name "terry_zhang"
+git config --global user.email "zhangquanit@gmail.com"
+2.创建 git 仓库:
+mkdir umeng
+cd umeng
+git init
+touch README.md
+git add README.md
+git commit -m "first commit"
+git remote add origin https://git.oschina.net/terry_zhang/umeng.git
+git push -u origin master
+
+//----------------------------------------
+一、初始化仓库
+1.初始化一个Git仓库，使用git init命令。
+2.添加文件到Git仓库，分两步：
+第一步，使用命令git add <file>，注意，可反复多次使用，添加多个文件,比如：
+$ git add file1.txt
+$ git add file2.txt file3.txt
+$ git commit -m "add 3 files."
+$ git add *
+提交所有文件
+$ git add dir/*
+提交dir文件夹下的所有文件
+第二步，使用命令git commit，完成。
+二、时光穿梭机
+1、版本回退
+查看仓库当前的状态
+git status命令可以让我们时刻掌握仓库当前的状态
+查看文件修改内容
+$ git diff  <file>
+查看历史记录
+$ git log
+如果嫌输出信息太多，看得眼花缭乱的，可以试试加上--pretty=oneline参数
+$ git log --pretty=oneline
+查看某一个文件的提交历史
+$ git log <file>
+$ git log -p <file>
+查看提交记录
+$ git reflog
+回退到上一个版本
+$ git reset --hard HEAD^
+回退到指定版本
+$ git reset --hard <commit_id>   (commitID可通过git log 或者git reflog查看)
+还原工作区修改(未add进暂存区)
+$ git checkout -- <file>
+查看历史修改内容
+$ git whatchanged
+diff 两次的commit
+$ git diff <commit_id>
+查看最近一次的修改内容
+$ git show
+查看某个人的修改
+$ git log --author=zhangquanit
+
+HEAD指向的版本就是当前版本，因此，Git允许我们在版本的历史之间穿梭，使用命令git reset --hard commit_id。
+穿梭前，用git log可以查看提交历史，以便确定要回退到哪个版本。
+要重返未来，用git reflog查看命令历史，以便确定要回到未来的哪个版本。
+
+2、工作区与暂存区
+2.1、工作区
+2.2、暂存区
+把文件往Git版本库里添加的时候，是分两步执行的：
+第一步是用git add把文件添加进去，实际上就是把文件修改添加到暂存区； 这时候也可以撤销，$ git reset --hard <file>
+第二步是用git commit提交更改，实际上就是把暂存区的所有内容提交到当前分支。
+我们创建Git版本库时，Git自动为我们创建了唯一一个master分支，所以，现在，git commit就是往master分支上提交更改。
+你可以简单理解为，需要提交的文件修改通通放到暂存区，然后，一次性提交暂存区的所有修改。
+
+3、管理修改
+Git跟踪并管理的是修改，而非文件。
+比如$ git add <file> 后，但是没有commit，此时继续修改file，然后commit，
+会发现第二次修改的内容并没有提交。
+当你用git add命令后，在工作区的第一次修改被放入暂存区，准备提交，但是，在工作区的第二次修改并没有放入暂存区，
+所以，git commit只负责把暂存区的修改提交了，也就是第一次的修改被提交了，第二次的修改不会被提交。
+
+分支管理
+1.查看分支：git branch
+查看所有分支(包括远程分支) git branch -a
+2.创建分支：git branch <name>
+3.切换分支：git checkout <name>
+4.创建+切换分支：git checkout -b <name>
+5.合并某分支到当前分支：git merge <name>
+6.删除分支：git branch -d <name>
+7.提交分支到远程仓库 git push origin <name>
+8.测试从远程获取dev:  git pull origin dev
+9.运行 git fetch，可以将远程分支信息获取到本地，
+再运行 git checkout -b local-branchname origin/remote_branchname  就可以将远程分支映射到本地命名为local-branchname  的一分支
+
+我觉得现在重要的就是设置git push,pull默认的提交获取分支,这样就很方便的使用git push 提交信息或git pull获取信息
+git branch --set-upstream-to=origin/dev
+取消对master的跟踪
+git branch --unset-upstream master
+现在随便修改一下工程文件的内容,然后git commit ,git push,之后就可以直接提交到远程的dev分支中,而不会是master
+
+git branch -vv :查看本地分支跟踪的远程分支
+
+
+暂存代码
+当我们在某个分支上修改代码时，可能需要临时切换到其他分支，但是又不想把本地代码提交到服务器，所以就需要暂存代码
+查看暂存记录 git stash list
+恢复暂存记录 git stash apply {记录}  恢复后可以将当前暂存记录删除了
+清除所有的暂存记录  git stash clear
+
+Git的submodule功能
+参考：http://www.open-open.com/lib/view/open1396404725356.html
+项目的版本库在某些情况下需要引用其他版本库中的文件,例如有一套公用的代码库，可以被多个项目调用
+Git 子模块功能允许你将一个Git仓库当作另外一个Git仓库的子目录。这允许你克隆另外一个仓库到你的项目中并且保持你的提交相对独立。
+在仓库目录下新建.gitmodules文件，然后在文件里面添加依赖的module项目git地址，比如：
+[submodule "library/basetools"]
+	path = library/basetools
+	url = git@git.mapbar.com:3in1/basetools.git
+[submodule "library/core_framework"]
+	path = library/core_framework
+	url = git@git.mapbar.com:3in1/core_framework.git
+[submodule "library/net"]
+	path = library/net
+	url = git@git.mapbar.com:3in1/new_net.git
+[submodule "library/search"]
+	path = library/search
+	url = git@git.mapbar.com:3in1/newsearch.git
+[submodule "library/umeng"]
+	path = library/umeng
+	url = git@git.mapbar.com:3in1/umeng_social.git
+[submodule "library/violation"]
+	path = library/violation
+	url = git@git.mapbar.com:3in1/violation.git
+[submodule "library/webview"]
+	path = library/webview
+	url = git@git.mapbar.com:3in1/webview.git
+
+注意：path为相对于主项目的路径
+
+
+
+//---------------------配置多个账号
+参考：http://blog.csdn.net/chaihuasong/article/details/37886139
+
+1.生成SSH
+$ ssh-keygen -t rsa -C "zhangquan@bbchexian.net"
+Generating public/private rsa key pair.
+Enter file in which to save the key (/c/Users/zhangquan/.ssh/id_rsa): /c/Users/zhangquan/.ssh/id_rsa_bbchexian
+注意：指定私钥文件名id_rsa_bbchexian
+
+或者
+在新增私钥的时候，通过指定不同的文件名来生成不同的私钥文件
+ssh-keygen -t rsa -f ~/.ssh/id_rsa_codingnet -C "zhangquanit@126.com"
+
+2.新增ssh的配置文件，修改config文件的内容
+Host github.com
+HostName github.com
+IdentityFile C:\\Users\\zhangquan\\.ssh\\id_rsa_github
+User zhangquan
+Host git.mapbar.com
+HostName git.mapbar.com
+IdentityFile C:\\Users\\zhangquan\\.ssh\\id_rsa
+User zhangquan
+
+
+
+
+
+
+//..................................................................常用命令
+
+查询adb端口占用进程
+netstat -aon|findstr "5037"
+查询是那个应用占用的进程
+tasklist|findstr "988"
+杀死进程
+taskkill/pid 进程号 /f
+删除正在使用的文件
+cmd --输入“资源监视器”-->cpu-->关联的句柄,搜索你想删除的文件，右键 “结束进程”
+
+查看错误日志：
+adb logcat | findstr "AndroidRuntime"
+adb shell中使用:
+logcat | grep "AndroidRuntime"
+
+....................................adb shell dumpsys
+利用adb shell dumpsys这条命令来dump出系统运行时的状态信息
+1、查看栈顶的Activity
+adb shell dumpsys activity top
+adb shell dumpsys activity top grep | more   分页显示，方便查看
+2、查看当前Activity栈信息
+adb shell dumpsys activity | sed -n -e '/Stack #/p' -e '/Running activities/,/Run #0/p'
+
+-----------------------------------导出已安装的apk：
+adb pull data/app/包名-1.apk  xx.apk
+或 adb pull data/app/包名-2.apk  xx.apk
+比如：
+adb pull data/app/com.tencent.mm-1.apk com.tencent.mm.apk
+adb pull data/app/com.tencent.mm-2.apk com.tencent.mm.apk
+
+注意：导出的apk一般在C:\Users\zhangquan目录下
+
+-----------------------------------Monkey测试
+adb shell monkey -p com.easou.ps.lockscreen9 -v 500
+
+
+
+//...............................................常用工具
+查询网站流量
+http://www.alexa.cn/
+
+H5网页、游戏编辑工具
+http://www.zuiku.com/

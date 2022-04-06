@@ -1,0 +1,7 @@
+
+参考文档：
+http://blog.csdn.net/hp910315/article/details/48809935
+
+Checkstyle、findbugs、pmd、lint
+
+具体规则配置参照 config/quality 目录

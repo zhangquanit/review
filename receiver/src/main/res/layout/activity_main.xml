@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/activity_main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <Button
+        android:id="@+id/btn_sendBrocast"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="发送隐式广播" />
+
+    <Button
+        android:id="@+id/btn_permission"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="权限广播" />
+
+    <Button
+        android:id="@+id/btn_sendBrocast2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="发送显示广播(必须在manifest中注册)" />
+
+    <Button
+        android:id="@+id/btn_sendBrocast3"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="代码动态注册广播" />
+
+    <Button
+        android:id="@+id/btn_sendLocalBrocast"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="本地广播" />
+
+    <Button
+        android:id="@+id/btn_schedulBrocast"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="定时广播" />
+
+</LinearLayout>

@@ -1,0 +1,90 @@
+
+1、服务
+public class MessengerService extends Service {
+    private static final int MSG_WHAT=1;
+    Messenger messenger= new Messenger(new Handler(){
+        @Override
+        public void handleMessage(Message msgfromClient) {
+            switch (msgfromClient.what){
+                case MSG_WHAT:
+                    Messenger clentMessenger = msgfromClient.replyTo;
+                    Message msgToClient = Message.obtain(null,MSG_WHAT); // 返回给客户端的消息
+                    try{
+                        msgToClient.obj="来自服务端的消息";
+                        clentMessenger.send(msgToClient);
+                    }catch(Exception e){
+                        e.printStackTrace();
+                    }
+                    break;
+            }
+           super.handleMessage(msgfromClient);
+        }
+    });
+    @Override
+    public IBinder onBind(Intent intent) {
+        return messenger.getBinder();
+    }
+}
+
+角色分析：
+IMessenger aidl接口  就一个send(Message msg)方法
+IMessenger.Stub
+MessengerImpl： Stub的具体实现 就一个send(Message msg)方法，调用handler.sendMessage()
+
+
+
+
+public final class Messenger implements Parcelable {
+    private final IMessenger mTarget;
+
+    public Messenger(Handler target) {
+        mTarget = target.getIMessenger(); //MessengerImpl
+    }
+
+    public void send(Message message) throws RemoteException {
+        mTarget.send(message); //MessengerImpl.send(message) ->handler.sendMessage(msg)
+    }
+
+    public IBinder getBinder() { //服务端返回的Binger对象
+        return mTarget.asBinder(); //其实就是 MessengerImpl
+    }
+
+    public Messenger(IBinder target) { //客户端调用本地代理  跨进程 target=BinderProxy  同进程 target=MessengerImpl
+        mTarget = IMessenger.Stub.asInterface(target);//跨进程返回 IMessenger.Stub.Proxy代理
+    }
+}
+
+public class Handler{
+    final IMessenger getIMessenger() {
+        synchronized (mQueue) {
+            if (mMessenger != null) {
+                return mMessenger;
+            }
+            mMessenger = new MessengerImpl();
+            return mMessenger;
+        }
+    }
+
+    private final class MessengerImpl extends IMessenger.Stub {
+        public void send(Message msg) {
+            Handler.this.sendMessage(msg); //调用handler的sendMessage()
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

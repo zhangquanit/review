@@ -1,0 +1,9 @@
+1、JAVA中Aop的具体实现方式
+http://blog.csdn.net/crazy__chen/article/details/52013920
+
+一、Aspectj
+官网：
+http://www.aspectj.org
+
+Aspectj 插件地址：
+http://mvnrepository.com/artifact/org.aspectj/aspectjtools

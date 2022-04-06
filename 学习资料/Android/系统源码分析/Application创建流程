@@ -1,0 +1,139 @@
+
+----------------------------ActivityThread
+ActivityThread主要用来管理主线程的执行
+
+public final class ActivityThread {
+   final ApplicationThread mAppThread = new ApplicationThread();
+   static volatile Handler sMainThreadHandler; //mH对象
+   final H mH = new H();
+
+   //构造函数
+    ActivityThread() {
+        mResourcesManager = ResourcesManager.getInstance();
+    }
+    public static void main(String[] args) {
+       attach(false)
+    }
+    private void attach(boolean system) {
+
+    }
+
+ }
+
+1、ActivityThread.main()
+    public static void main(String[] args) {
+
+        //创建main looper
+        Looper.prepareMainLooper();
+
+        //创建ActivityThread
+        ActivityThread thread = new ActivityThread();
+        thread.attach(false);
+
+        //循环消息队列
+        Looper.loop();
+    }
+    
+     public static ActivityThread systemMain() {
+         ActivityThread thread = new ActivityThread();
+         thread.attach(true, 0);
+         return thread;
+     }   
+2、ActivityThread.attach()
+
+    private void attach(boolean system) {
+        sCurrentActivityThread = this;
+        mSystemThread = system;
+        if (!system) { //main()方法传递的false
+            final IActivityManager mgr = ActivityManager.getService();
+            mgr.attachApplication(mAppThread, startSeq); //具体实现在IActivityManager.Stub的子类ActivityManagerService
+
+        } else { //系统进程
+
+                //创建Instrumentation
+                mInstrumentation = new Instrumentation();
+                mInstrumentation.basicInit(this);
+
+                //创建App Context
+                ContextImpl context = ContextImpl.createAppContext(
+                        this, getSystemContext().mPackageInfo);
+
+                //LoadedApk创建Application，调用mInstrumentation.newApplication(),然后调用application.attachBaseContext(appContext)
+                mInitialApplication = context.mPackageInfo.makeApplication(true, null);
+                mInitialApplication.onCreate();
+        }
+    }
+    public ContextImpl getSystemContext() {
+          mSystemContext = ContextImpl.createSystemContext(this); //mPackageInfo=LoadedApk
+          // 会创建LoadedApk   LoadedApk packageInfo = new LoadedApk(mainThread);
+    }
+
+public final class LoadedApk {
+    LoadedApk(ActivityThread activityThread) {
+        mActivityThread = activityThread;
+        mApplicationInfo = new ApplicationInfo();
+        mApplicationInfo.packageName = "android";
+        mClassLoader = ClassLoader.getSystemClassLoader();
+        mResources = Resources.getSystem();
+        mAppComponentFactory = createAppFactory(mApplicationInfo, mClassLoader);
+    }
+    public Application makeApplication(boolean forceDefaultAppClass,
+            Instrumentation instrumentation) {
+        if (mApplication != null) {
+            return mApplication;
+        }
+        Application app = null;
+        String appClass = mApplicationInfo.className;
+        if (forceDefaultAppClass || (appClass == null)) {
+            appClass = "android.app.Application";
+        }
+
+        try {
+            java.lang.ClassLoader cl = getClassLoader();
+            if (!mPackageName.equals("android")) {
+                initializeJavaContextClassLoader(); // Thread.currentThread().setContextClassLoader(contextClassLoader);
+            }
+            ContextImpl appContext = ContextImpl.createAppContext(mActivityThread, this);
+            app = mActivityThread.mInstrumentation.newApplication(
+                    cl, appClass, appContext);
+            //其实就是通过classLoader反射创建Application
+            //Application app =  (Application) cl.loadClass(className).newInstance();
+            //app.attach(context); //  ->Applicaion.attachBaseContext(appContext);        
+                    
+            appContext.setOuterContext(app);
+        } catch (Exception e) {
+        }
+        mActivityThread.mAllApplications.add(app);
+        mApplication = app;
+        return app;
+    }
+
+}
+
+//Instrumentation
+public Application newApplication(ClassLoader cl, String className, Context context) {
+    Application app =  (Application) cl.loadClass(className).newInstance();
+    app.attach(context); //  ->Applicaion.attachBaseContext(appContext);
+    return app;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

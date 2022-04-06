@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="15dp"
+    android:orientation="vertical">
+
+
+    <TextView
+        android:id="@+id/tv_memory"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <Button
+        android:id="@+id/tv_trace"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Trace" />
+
+    <Button
+        android:id="@+id/tv_viewServer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="ViewServer" />
+
+    <Button
+        android:id="@+id/tv_leak"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="内存泄露" />
+
+</LinearLayout>

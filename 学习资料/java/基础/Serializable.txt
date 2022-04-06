@@ -1,0 +1,64 @@
+
+序列化：把对象转换为字节序列的过程称为对象的序列化。
+反序列化：把字节序列恢复为对象的过程称为对象的反序列化。
+
+1、实现序列化需要实现Serializable接口
+如果去掉Serializable接口进行序列化或反序列化会报NotSerializableException异常
+2、transient修饰的属性，是不会被序列化的
+3、serialVersionUID 的作用
+作用：serialVersionUID用于匹对对象版本 序列化和反序列化时必须保证serialVersionUID的值不变。
+如果不设置serialVersionUID，Java会自动的赋值。如果序列化后，对象属性或方法发生修改，反序列化时就会报
+java.io.InvalidClassException异常，因为serialVersionUID值已经发生变化。
+因此可以给serialVersionUID设置一个固定值，这样当对象属性或方法发生变化，反序列时就不会报错。
+
+
+
+
+public class SerializableTest {
+    private static File file = new File("/Users/edz/terry/github/others/kotlin/obj.txt");
+
+    public static void main(String[] args) throws Exception {
+        MyEntity myEntity = new MyEntity();
+        myEntity.setUsername("张三");
+        myEntity.setAge("35");
+
+        writeObj(myEntity);
+        readObj();
+    }
+
+    private static void writeObj(MyEntity myEntity) throws Exception {
+        ObjectOutputStream outputStream = new ObjectOutputStream(new FileOutputStream(file));
+        outputStream.writeObject(myEntity);
+        outputStream.flush();
+        outputStream.close();
+    }
+
+    private static void readObj() throws Exception {
+        ObjectInputStream inputStream = new ObjectInputStream(new FileInputStream(file));
+        MyEntity entity = (MyEntity) inputStream.readObject();
+        System.out.println("entity=" + entity);
+    }
+
+    public static class MyEntity implements Serializable {
+        private static final long serialVersionUID = 1; //设置固定值，防止序列化后 对象属性或方法发生改变 反序列化时报错
+        private String username;
+        private String age;
+        public transient int sex; //不会被序列化
+
+        public String getUsername() {
+            return username;
+        }
+
+        public void setUsername(String username) {
+            this.username = username;
+        }
+
+        public String getAge() {
+            return null;
+        }
+
+        public void setAge(String age) {
+            this.age = age;
+        }
+    }
+}

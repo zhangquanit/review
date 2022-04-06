@@ -1,0 +1,47 @@
+
+注意：参照28以上
+------------------------
+IActivityManager是一个IInterface，它代表远程Service具有什么能力，
+IActivityManager.Stub：
+ActivityManagerService：Stub的具体实现
+
+public interface IActivityManager extends IInterface {
+
+     public boolean isUserRunning(int userId, int flags);
+}
+
+public class ActivityManagerService extends IActivityManager.Stub
+    @Override
+    public boolean isUserRunning(int userId, int flags) {
+         // 具体实现
+    }
+}
+
+public class ActivityManager {
+
+   //对外提供的操作方法
+    public boolean isUserRunning(int userId) {
+        try {
+            return getService().isUserRunning(userId, 0);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    //获取aidl接口代理对象
+    public static IActivityManager getService() {
+        return IActivityManagerSingleton.get();
+    }
+
+    private static final Singleton<IActivityManager> IActivityManagerSingleton =
+            new Singleton<IActivityManager>() {
+                @Override
+                protected IActivityManager create() {
+                   //获取远程BinderProxy代理对象
+                    final IBinder b = ServiceManager.getService(Context.ACTIVITY_SERVICE);
+                    //远程接口代理 IActivityManager.Stub.Proxy，其实最后还是要调用BinderProxy.transact
+                    final IActivityManager am = IActivityManager.Stub.asInterface(b);
+                    return am;
+                }
+            };
+}

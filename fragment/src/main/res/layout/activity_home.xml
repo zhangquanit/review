@@ -1,0 +1,33 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:id="@+id/container"
+    android:padding="20dp"
+    android:orientation="vertical" >
+
+    <Button
+        android:id="@+id/adapter"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:onClick="adapter"
+        android:text="adapter" />
+    <Button
+        android:id="@+id/view"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:onClick="lifecycle"
+        android:text="生命周期" />
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:onClick="retainTest"
+        android:text="状态保存" />
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Backstack 后退栈"
+        android:onClick="backtackTest"
+        />
+
+</LinearLayout>

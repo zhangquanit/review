@@ -1,0 +1,15 @@
+
+AIDL（Android Interface Definition Language）是Android接口定义语言的意思
+它可以用于让某个Service与多个应用程序组件之间进行跨进程通信，从而可以实现多个应用程序共享同一个Service的功能。
+
+一、AIDL 支持的数据类型划分为四类:
+1、Java 的基本类型
+Java语言提供了八种基本类型：byte short int long float double char boolean。不需要import。
+2、 String、List、Map 和 CharSequence
+List，Map内的元素必须是AIDL支持，接收方必须是ArrayList，HashMap。不需要import。
+3、其他AIDL定义的接口
+传递的是引用，需要 import。
+4、实现Parcelable的类
+值传递，需要 import。
+
+二、in表示是输入参数，out表示是输出参数，inout表示输入输出参数，先传入参数，处理后传出

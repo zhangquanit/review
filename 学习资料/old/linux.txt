@@ -1,0 +1,96 @@
+linux命令############
+
+使用 sudo 命令暂时成为 root
+sudo su
+
+基本命令
+~表示home目录，比如：
+cd ~ 进入home目录
+touch ~/test 则会在home目录下生成test文件
+pwd 查看当前目录
+open <file> 打开文件或文件夹
+clear 清除控制台内容
+
+
+
+一、vim文本编辑
+vim可看做是vi的升级版
+vim <file> 打开一个文件，如果没有则创建。
+打开后，按esc进入模式切换，按i进入insert模式，按v进入浏览模式。
+退出命令
+点击键盘的 “Esc”  如果保存退出文件 就是 :wq  不保存退出 :q   不保存强制退出 :q!
+
+二、文件操作命令
+touch <file> 创建一个不存在的空文件,如果文件已存在，则不执行
+mkdir <dir> 创建文件夹 
+mkdir -p <dir1/dir2/dir3> 创建多级文件目录
+
+cat命令
+cat> <file> 创建一个文件，并进入编辑模式.如果文件已存在，则覆盖内容
+cat <file> 显示文件内容
+cat file1 file2 > <file> ： 合并文件内容，将file1，file2中内容合并到file文件中。
+ctrl+d 退出cat命令
+
+rm删除命令
+   可选参数：-f强制删除  -r递归删除,一般是删除文件夹
+rm <file> 删除文件 rm -f <file> 强制删除
+rm -r <file> 删除文件夹  rm -rf 强制删除文件夹
+
+三、ls命令
+ls命令表示列出文件和目录。
+ls
+ls -a 列出所有隐藏的文件
+ls -l 列出文件，包括权限、大小、修改时间等
+ls -lh 以易读方式来显示大小
+ls -F 如果是文件夹，则以/结尾 列出来
+ls -r 倒序列出
+ls -R 递归列出
+
+四、查找命令
+1、find [路径] [参数]
+列出路径下所有的文件
+
+2、mdfind
+mdfind <file> 查询文件地址
+
+3、which
+查找某个系统命令是否存在
+which <软件名>
+比如 查看python的安装目录  
+which python
+打印出 /Library/Frameworks/Python.framework/Versions/2.7/bin/python
+
+有时候软件的安装路径不止一个地方，可使用
+whereis <软件名>
+
+五、设置命令别名
+1、查看所有设置的别名
+alias -p
+2、查看指定的别名
+alias <别名>
+3、设置别名
+alias <别名>='xxx'
+比如：alias portal='cd /Users/zhangquan/Workspace_alibaba/android-portal-git'
+4、取消别名
+unalias <别名>
+
+alias gradleA=‘gradle clean assembleDebug’
+alias gradleB=‘gradle clean buildDebug’
+alias gradleI=‘gradle clean installDebug’
+alias portal=‘cd /Users/zhangquan/Workspace_alibaba/android-portal-git’
+
+
+------------------------其他常用命令------------------------
+查看某个配置的环境变量 用$ 
+比如：$GRADLE_HOME
+
+~ 代表USER_HOME  即 /Users/zhangquan/
+clear 清除当前控制台信息
+ls -ltr
+ls -l
+ls -al  查询文件权限
+
+
+
+
+

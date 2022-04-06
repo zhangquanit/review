@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="me.chunyu.spike.wcl_activity_launchmode_demo">
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+        <activity android:name=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".TestAActivity" />
+
+        <!--
+        一个应用的taskAffinity是一样的，默认为包名
+        android:taskAffinity="com.zhangquanit.stack"
+        taskAffinity 只有和 SingleTask 启动模式匹配使用时，启动的 Activity 才会运行在名字和 taskAffinity 相同的任务栈中
+         -->
+        <activity
+            android:name=".TestBActivity"
+            android:launchMode="singleTask"
+            android:taskAffinity="com.zhangquanit.stack" />
+
+        <activity android:name=".TestCActivity" />
+
+        <activity android:name=".TestDActivity" />
+    </application>
+
+</manifest>

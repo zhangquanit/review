@@ -1,0 +1,148 @@
+
+一、后台执行限制
+1、应用无法使用manifest注册隐式广播
+只能通过context.registReceiver()注册。
+之前注册的隐式广播可以使用JobScheduler完成类似工作。
+系统目前保留了部分隐式广播：
+参考 https://developer.android.google.cn/guide/components/broadcast-exceptions
+
+2、在后台运行的应用对后台服务的访问受到限制。
+处于前台时，应用可以自由创建和运行前台服务与后台服务。
+进入后台时，在一个持续数分钟的时间窗内，应用仍可以创建和使用服务。在该时间窗结束后，应用将被视为处于 空闲状态。 此时，系统将停止应用的后台服务。
+
+Android 8.0 还对特定函数做出了以下变更：
+1)如果针对 Android 8.0 的应用尝试在不允许其创建后台服务的情况下使用 startService() 函数，则该函数将引发一个 IllegalStateException。
+2)新的 Context.startForegroundService() 函数将启动一个前台服务。现在，即使应用在后台运行，
+系统也允许其调用 Context.startForegroundService()。不过，应用必须在创建服务后的五秒内调用该服务的 startForeground(1, notification) 函数。否则出现ANR
+
+解决方案：
+1、利用startForegroundService启动后台service
+缺点是需要显示前台通知
+Intent service = new Intent(context, MyBackgroundService.class);
+if (Build.VERSION.SDK_INT >= 26) {
+    context.startForegroundService(service);
+} else {
+    context.startService(service);
+}
+
+8.0后Service必须在5秒内调用startForeground
+if (Build.VERSION.SDK_INT >= 26) {
+  startForeground(1, notification);
+}
+
+2、使用JobService代替Service
+3、使用jetpack的WorkManger组件兼容处理
+
+二、Android 后台位置限制
+为节约电池电量、降低了后台应用接收位置更新的频率。
+Location Manager
+Wi-Fi Manager
+
+三、应用快捷键
+https://blog.csdn.net/ahence/article/details/77869013
+8.0之前我们多是通过发送com.android.launcher.action.INSTALL_SHORTCUT 广播的方式来实现。
+但在8.0的系统行为变更中指出，该广播变为私有的隐式广播，因此原来创建快捷方式的方法在8.0的系统上将不再有效，
+官方推荐我们使用ShortcutManager来创建应用快捷方式。
+
+Android 7.1起，开发者可以创建一些跳转到特定页面的快捷方式
+快捷方式类型
+Static shortcuts
+静态快捷方式通过资源文件定义，并且打包到APK中，因此只能在更新App时才能修改此类快捷方式。
+
+Dynamic shortcuts
+动态快捷方式在App运行时使用ShortcutManager API定义，可以在运行时创建、修改和删除。
+
+Pinned shortcuts
+固定快捷方式也是在App运行时通过ShortcutManager API定义，App会弹出确认对话框来申请创建该快捷方式，如果用户允许，则此快捷方式将会显示在支持它的启动器（Launcher）上。
+在8.0或更高的系统上可以使用固定快捷方式，此类快捷方式在支持它的Launcher上表现为独立的图标
+
+一个App最多可以创建5个静态、动态快捷方式，对于固定快捷方式的数量则没有限制，但一些Launcher应用可能不会全部显示出所创建的动态或静态快捷方式。
+
+
+四、记录未捕获的异常
+android8.0之前，自定义Thread.UncaughtExceptionHandler 未移交给默认的 Thread.UncaughtExceptionHandler，系统不会终止应用。
+但是从Android 8.0 开始，系统将记录异常堆栈跟踪情况，系统会终止应用；因此建议自定义 Thread.UncaughtExceptionHandler 实现始终移交给默认处理程序处理；
+
+
+五、android8.0需要使用NotificationChannel来处理通知的显示
+NotificationCompat.Builder mBuilder;
+NotificationManager notificationManager;
+
+ notificationManager = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
+
+if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+    NotificationChannel channel = new NotificationChannel(channelId, "Channel1", NotificationManager.IMPORTANCE_DEFAULT);
+                channel.enableLights(false);
+                channel.enableVibration(false);
+                channel.setVibrationPattern(new long[]{0});
+                channel.setSound(null, null);
+                channel.setLightColor(Color.RED); //小红点颜色
+                channel.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
+                channel.setShowBadge(true); //是否在久按桌面图标时显示此渠道的通知
+
+                notificationManager.createNotificationChannel(channel);
+
+                mBuilder = new NotificationCompat.Builder(ctx, channelId);
+    }else{
+                mBuilder = new NotificationCompat.Builder(ctx);
+                mBuilder.setDefaults(NotificationCompat.FLAG_ONLY_ALERT_ONCE)
+                        .setVibrate(new long[]{0})
+                        .setSound(null);
+    }
+
+    mBuilder.setTitle("");
+    mBuiler.setContent("")
+
+    //发送通知
+    Notification notify = mBuilder.build();
+    notificationManager.notify(notificationId, notify);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

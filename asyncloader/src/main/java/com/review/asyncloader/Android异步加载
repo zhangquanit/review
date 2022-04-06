@@ -1,0 +1,130 @@
+关于Activity中的managedQuery方法
+该方法也是用于在Activity中加载数据的，在Android 3.0之前的版本中，我们如果想在Activity中通过ContentResolver对ContentProvider进行查询，我们可以方便的调用Activity的managedQuery方法
+@Deprecated
+    public final Cursor managedQuery(Uri uri, String[] projection, String selection,
+            String[] selectionArgs, String sortOrder) {
+        Cursor c = getContentResolver().query(uri, projection, selection, selectionArgs, sortOrder);
+        if (c != null) {
+            startManagingCursor(c);
+        }
+        return c;
+    }
+从上面的代码我们可以看出managedQuery中通过ContentResolver执行了query方法，并将得到的Cursor对象交给startManagingCursor()方法来管理，这就导致了managedQuery方法存在如下缺陷：
+1、Activity的managedQuery方法内部在主线程上执行了ContentResolver的query()方法，但该方法是个耗时方法，很可能导致应用程序无响应，出现ANR现象。
+
+
+一、Loader、LoaderManager
+Loader以及LoaderManager是Android Framework中异步加载各种数据（不限于Cursor）的标准机制。
+Loader是加载器，它完成实际的数据加载工作。LoaderManager是Loader的管理着，其管理着一个或多个Loader的生命周期。
+Android从3.0版本之后引入了Loader以及LoaderManager，使得我们可以在Activity或Fragment中使用它们。support v4包可兼容3.0之前。
+1、LoaderManager
+public abstract <D> Loader<D> initLoader(int id, Bundle args,LoaderManager.LoaderCallbacks<D> callback);
+public abstract <D> Loader<D> restartLoader(int id, Bundle args, LoaderManager.LoaderCallbacks<D> callback);
+public abstract <D> Loader<D> getLoader(int id);
+public abstract void destroyLoader(int id);
+
+我们使用Loader加载数据时，实际上我们并不直接与Loader打交道，相反，我们应用使用LoaderManager实现对Loader的管理。
+一个Activity/Fragment只有一个单例的LoaderManager对象，通过调用getLoaderManager()方法获取到LoaderManager对象。
+LoaderManager可以管理一个或多个的Loader，通过id来区分不同的loader，能够维护Loader的生命周期.
+
+2、LoaderManager.LoaderCallbacks
+LoaderCallbacks有三个回调方法需要实现：onCreateLoader()、onLoadFinished()以及onLoaderReset()。
+onCreateLoader：我们要在onCreateLoader()方法内返回一个Loader的实例对象。
+很多情况下，我们需要查询ContentProvider里面的内容，那么我们就需要在onCreateLoader中返回一个CursorLoader的实例，CursorLoader继承自Loader。当然，如果CursorLoader不能满足我们的需求，我们可以自己编写自己的Loader然后在此onCreateLoader方法中返回。
+onLoadFinished：当onCreateLoader中创建的Loader完成数据加载的时候，我们会在onLoadFinished回调函数中得到加载的数据。
+在此方法中，客户端可以得到数据并加以使用，在这之前，如果客户端已经保存了一份老的数据，那么我们需要释放对老数据的引用。
+onLoaderReset：当之前创建的Loader被销毁（且该Loader向客户端发送过数据）的时候，就会触发onLoaderReset()回调方法，此时表明我们之前获取的数据被重置且处于无效状态了，所以客户端不应该再使用这份“过期”的无效的老数据，应该释放对该无效数据的引用。
+
+3、Loader
+Loader是具体的数据加载器
+但是需要说明的是Loader类本身并不支持异步加载机制，所以当我们要编写自己的数据加载器的时候，我们不应该直接继承自Loader类，我们应该继承自AsyncTaskLoader类，AsyncTaskLoader支持异步加载机制
+Loader有许多public的方法，比如startLoading()、stopLoading()等，但是客户端不应该直接调用这些方法，这些方法是由LoaderManager调用的，如果客户端调用了这些public的方法，就很有可能导致Loader生命周期出现混乱，进而影响到LoaderManager对Loader的管理。
+
+4、AsyncTaskLoader
+AsyncTaskLoader继承自Loader
+Loader类本身没有异步加载数据的机制，但是AsyncTaskLoader具有异步加载的机制，这是因为AsyncTaskLoader内部使用了AsyncTask来进行异步数据加载
+AsyncTaskLoader中的loadInBackground()方法是抽象方法，我们应在该方法中应该实现具体的异步加载逻辑。
+
+参考：http://blog.chengdazhi.com/index.php/131 通过Loader保存Presenter
+AsyncTaskLoader有一个优点，他不仅可以异步（通俗理解就是又开了一个线程而已），并且当他检测到数据的变化时会自动加载。
+1）支持Activity和Fragment
+2）异步加载（就是异步任务来完成的）
+3）当数据源改变时能及时通知客户端
+当监听到数据源发生改变时，调用onContentChanged，通知客户端刷新数据
+4）发生configuration change时自动重连接
+
+5、CursorLoader
+CursorLoader继承自AsyncTaskLoader，其实现了AsyncTaskLoader的loadInBackground()方法，在该方法中会执行ContentResolver的query()方法，从而实现对ContentProvider的数据查询，其得到的数据是Cursor对象
+当我们想从ContentProvider中查询数据时候，我们不应该使用Activity中的managedQuery()方法，我们应该使用LoaderManager和CursorLoader，因为CursorLoader是异步加载数据，不会阻塞主线程。
+
+总结：
+1、能够完成异步加载任务
+AsyncTaskLoader,CursorLoader
+2、当数据源发生改变时，可自动更新
+Loader通过实现监听器（比如ContentObserver，BroadcastReceiver等），来检测底层数据源的改变。当检测到数据改变，观察者必须调用Loader#onContentChanged()。
+3、不用担心当手机的状态发生改变时（比如旋转手机）造成对象生命周期管理问题。
+当手机状态发生改变比如旋转时，Activity会重新启动。Loader是Android框架中提供的在手机状态改变时不会被销毁的工具。Loader的生命周期是是由系统控制的
+
+二、AsyncTask
+
+public abstract class AsyncTask<Params, Progress, Result> {
+    private static final int CPU_COUNT = Runtime.getRuntime().availableProcessors(); //系统核数，比如4核的手机  就是4
+    private static final int CORE_POOL_SIZE = CPU_COUNT + 1;
+    private static final int MAXIMUM_POOL_SIZE = CPU_COUNT * 2 + 1;
+    private static final int KEEP_ALIVE = 1;
+    private static final BlockingQueue<Runnable> sPoolWorkQueue =
+            new LinkedBlockingQueue<Runnable>(128);
+             //线程池
+    public static final Executor THREAD_POOL_EXECUTOR
+            = new ThreadPoolExecutor(CORE_POOL_SIZE, MAXIMUM_POOL_SIZE, KEEP_ALIVE,
+                    TimeUnit.SECONDS, sPoolWorkQueue, sThreadFactory);
+             //串行的Exector  同时执行一个任务，执行完了执行下一个
+    public static final Executor SERIAL_EXECUTOR = new SerialExecutor();
+    private static volatile Executor sDefaultExecutor = SERIAL_EXECUTOR;
+
+    private static InternalHandler sHandler; //将doInBackground后台线程执行的结果发送到UI主线程
+
+    private final WorkerRunnable<Params, Result> mWorker; //实现了Callable
+    private final FutureTask<Result> mFuture; // new FutureTask<Result>(mWorker) 用来管理mWorker
+
+    private volatile Status mStatus = Status.PENDING;
+
+    private final AtomicBoolean mCancelled = new AtomicBoolean(); //是否调用cancel取消任务
+    private final AtomicBoolean mTaskInvoked = new AtomicBoolean(); //任务是否已执行标识，进入WorkerRunnable.call()方法
+    //串行任务Executor，同时只能
+    private static class SerialExecutor implements Executor {
+        final ArrayDeque<Runnable> mTasks = new ArrayDeque<Runnable>(); //任务队列
+        Runnable mActive; //当前正在执行的任务
+
+        public synchronized void execute(final Runnable r) {
+            //将任务添加到队列中
+            mTasks.offer(new Runnable() {
+                public void run() {
+                    try {
+                        r.run();
+                    } finally {
+                        scheduleNext(); //一个接一个的执行
+                    }
+                }
+            });
+             //如果当前没有任务，则立即执行
+            if (mActive == null) {
+                scheduleNext();
+            }
+        }
+
+        protected synchronized void scheduleNext() {
+            if ((mActive = mTasks.poll()) != null) {
+                THREAD_POOL_EXECUTOR.execute(mActive); //转交给线程池去执行
+            }
+        }
+    }
+
+三、AsyncTaskLoader与AsyncTask的比较
+1、相同点
+都能完成异步加载任务
+2、不同点
+1）AsyncTaskLoader可以通过监听数据源改变，通知客户端刷新数据
+2）AysncTaskLoader不用担心当手机的状态发生改变（比如旋转手机），可以自动保存状态。
+一个Activity/Fragment中只有一个LoaderManager(无论Activty/Fragment是否重新创建)
+

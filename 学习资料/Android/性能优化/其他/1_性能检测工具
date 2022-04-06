@@ -1,0 +1,73 @@
+
+http://blog.csdn.net/column/details/itfootballprefermanc.html
+
+TraceView
+http://blog.csdn.net/innost/article/details/9008691
+
+一、DDMS
+1、Allocation tracker（DDMS）
+主要是查看内存是如何分配的
+Allocation Tracker用于追踪内存分配信息，按顺序排列，这样我们就能清晰看出来某一个操作的内存是如何一步一步分配出来的。比如在有内存抖动的可疑点，
+我们可以通过查看其内存分配轨迹来看短时间内有多少相同或相似的对象被创建，进一步找出发生问题的代码。
+http://blog.csdn.net/itfootball/article/details/48735041
+
+名称	意义
+Alloc Order	分配序列
+Allocation Size	分配的大小
+Allocated Class	被分配的对象
+Thread Id	线程id号
+Allocated in	在哪个类分配的
+第二个Allocated in	在哪个方法分配的
+
+2、Heap Viewer (DDMS)
+实时查看App分配的内存大小和空闲内存大小，发现Memory Leaks
+打开DDMS...Devices,选择某个进程....点击update heap按钮...在右边的heap面板，点击cause GC。
+来回切换页面，点击cause GC，查看内存是否正常回收。
+
+http://blog.csdn.net/itfootball/article/details/48734553
+
+3、Trace View
+主要用来分析方法执行时长，解决页面卡顿问题。
+打开DDMS...Devices,选择某个进程..点击 start method profiling，执行操作，然后再次点击停止，自动生成.trace文件。
+直接在底部搜索 方法入口，查看各方法的执行时长，分析卡顿原因。
+http://blog.csdn.net/itfootball/article/details/48792435
+
+4、Dump HPROF File
+和Profile中的Dump Java Heap一样，主要用来分析内存，检查内存泄漏
+
+二、Profile(Android Studio)
+CPU
+Memory
+Network
+电量
+
+三、MAT
+http://blog.csdn.net/yxz329130952/article/details/50288145
+http://blog.csdn.net/zxm317122667/article/details/52162764
+
+名词解释：
+shallow size：对象自身中有的内存大小
+retained size：对象自身大小 + 该对象直接或是间接引用对象的shallow size
+GC Roots：所有的对象引用refer chains的起点。
+
+
+通过OQL来排查Activity泄漏：
+select * from instanceof android.app.Activity
+结果中如果出现了本应该销毁的Activity，则代表该Activity泄漏了
+
+1、List Objects
+with incoming refrences:查看哪些类应用了该对象，当知道某个类发生泄漏后，这样可以快速找到找到泄漏点，解决引用问题
+with outcoming refreences: 查看该对象引用了哪些外部对象
+
+2、Show objects by class
+和List Objects相似，也可以罗列出当前选中对象在引用树种的上下级关系，只是这个选项会将结果中类型相同的对象进行归类，
+比如结果中有多个String类型的对象，List Objects会将它们分别显示出来，而Show objects by class会将它们统一归类为java.lang.String。
+
+3、Merge Shortest Path To GC Roots
+这是快速分析的一个常用功能，它能够从当前内存映像中找到一条指定对象所在的到GC Root的最短路径。
+一般来说，软应用、弱引用、虚引用不会造成内存泄漏，所以一般排除来自这三种引用的干扰，选择
+   exclude all phantom/weak/soft etc. references选项
+
+4、Java Basics
+这个选项并不是很常用，这里只简单介绍一下其中的Class Loader Explorer子选项，它可以用来查看一些和选定对象的class loader相关的特性，
+包括这个class loader的名称、继承关系和它所加载的所有类型

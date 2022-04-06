@@ -1,0 +1,91 @@
+
+
+Groovy
+一、与java比较
+1、Groovy完全兼容java的语法
+2、分号是可选的
+3、类、方法默认是public的
+4、编译器给属性自动添加getter/setter方法
+5、属性可以直接用.来获取
+6、最后一个表达式的值会作为返回值，可以不写return
+public int getAge{
+   return this.age;
+}
+   ---等同于
+int getAge(){
+   age
+}
+7、==等同于equals(),不会有NullPointerExceptions
+
+二、高效的Groovy特性
+1、自带assert语句
+def a=1
+assert a==1
+如果断言不为true，则会抛出java.lang.AssertionError
+2、可选类型定义，自动推动类型
+def a=100
+3、可选的括号
+调用方法的时候，如果括号有参数，括号是可以不写的
+比如print("a")  可以写成  print "a"
+def map=["key":"value"]
+println map    可以写成 println "key":"value"
+def fun(int a,int b){
+  println a+b
+}
+fun(1,2) 或者 fun 1,2
+4、字符串
+单引号 仅仅是一个字符串 比如 'this is string'
+双引号  可以引用变量  比如 “this is ${value}”
+三引号  支持换行
+    ''' this is
+        string
+    '''
+5、集合api
+/**
+ * list
+ */
+def list = ["a", 1, 2]
+list[0] = "b" //修改元素
+list << 3  //追加一个元素
+println list //[b, 1, 2, 3]
+println list.getClass() //java.util.ArrayList
+
+/**
+ * map
+ */
+def map = ["key1": 1, "key2": "value2"]
+map.key1 = "value1" //修改元素
+map["key2"] = "value22" //修改元素
+println map.key1 //打印元素
+println map.key2
+println map
+println map.getClass()  //java.util.LinkedHashMap
+
+6、闭包
+闭包以{},一般作为参数传递
+/**
+ * 闭包
+ * 闭包就是一个代码块，可以有参数，也可以没有
+ * 可以赋值给变量，也可以作为方法参数传递
+ */
+def c1 = {
+    key -> println "c1 key=$key"
+}
+c1() //执行闭包
+c1(1) //执行闭包
+
+def c2 = {
+    println "c2"
+}
+
+def fun(Closure closure) { //闭包作为参数  有参数的闭包
+    closure("param")
+}
+
+def fun2(Closure closure) { //闭包作为参数  无参数的闭包
+    closure()
+}
+
+fun(c1)
+fun(c2)
+
