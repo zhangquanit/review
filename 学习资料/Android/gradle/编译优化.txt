@@ -1,0 +1,19 @@
+
+一、编译优化配置
+android.useAndroidX=true
+android.enableJetifier=true
+
+android.enableD8=true
+android.enableD8.desugaring= true
+android.enableBuildCache=true
+org.gradle.caching=true
+org.gradle.continue=true
+org.gradle.configureondemand=true
+org.gradle.deamon = true
+org.gradle.parallel = true
+org.gradle.jvmargs=-Xmx5120m
+
+android.enableR8=true
+
+二、
+https://mp.weixin.qq.com/s/e1L6gB_s5H38unSfhf4c6A
